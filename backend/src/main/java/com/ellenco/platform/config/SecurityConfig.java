@@ -46,8 +46,10 @@ public class SecurityConfig {
             .headers(headers -> headers.frameOptions(frame -> frame.disable()))
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/**", "/api/health/**", "/actuator/health", "/h2-console/**", "/error", "/", "/index.html", "/assets/**", "/*.png", "/*.svg", "/*.ico", "/*.webmanifest", "/*.js", "/*.css").permitAll()
-                .anyRequest().authenticated())
+    .requestMatchers("/api/auth/**", "/api/health/**", "/actuator/health", "/h2-console/**", "/error").permitAll()
+    .requestMatchers("/", "/index.html", "/assets/**", "/static/**", "/*.png", "/*.svg", "/*.ico", "/*.webmanifest", "/*.js", "/*.css").permitAll()
+    .anyRequest().authenticated())
+
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authenticationProvider(authenticationProvider())
             .addFilterBefore(new JwtAuthenticationFilter(jwtService, userService), UsernamePasswordAuthenticationFilter.class);

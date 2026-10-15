@@ -6,15 +6,13 @@ import org.springframework.web.bind.annotation.RequestMapping;
 @Controller
 public class ForwardController {
 
-    // Captura qualquer rota profunda de subpastas do React Router (ex: /dashboard, /estoque/produtos)
-    // Contanto que não seja uma chamada da API, Actuator, console do H2 ou um arquivo físico com ponto "."
-    @RequestMapping(value = "/{path:^(?!api|h2-console|actuator)[^\\.]*}/**")
+    // Adicionado "assets" na lista de negação para o Java não sequestrar o CSS/JS do React
+    @RequestMapping(value = "/{path:^(?!api|h2-console|actuator|assets|static)[^\\.]*}/**")
     public String forwardDeepPaths() {
         return "forward:/index.html";
     }
 
-    // Captura rotas de primeiro nível que não possuem barras adicionais
-    @RequestMapping(value = "/{path:^(?!api|h2-console|actuator)[^\\.]*}")
+    @RequestMapping(value = "/{path:^(?!api|h2-console|actuator|assets|static)[^\\.]*}")
     public String forwardSinglePath() {
         return "forward:/index.html";
     }
