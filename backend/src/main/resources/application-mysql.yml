@@ -1,0 +1,13 @@
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/ellenco_platform?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=America/Sao_Paulo}
+    username: ${SPRING_DATASOURCE_USERNAME:ellenco}
+    password: ${SPRING_DATASOURCE_PASSWORD:ellenco}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  h2:
+    console:
+      enabled: false

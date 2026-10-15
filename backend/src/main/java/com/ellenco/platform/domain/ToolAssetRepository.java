@@ -1,0 +1,1 @@
+package com.ellenco.platform.domain;import org.springframework.data.jpa.repository.JpaRepository;import java.util.Optional;public interface ToolAssetRepository extends JpaRepository<ToolAsset,Long>{Optional<ToolAsset> findByPatrimonio(String patrimonio);boolean existsByPatrimonio(String patrimonio);}

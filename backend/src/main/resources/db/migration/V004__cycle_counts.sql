@@ -1,0 +1,3 @@
+CREATE TABLE inventarios(id BIGSERIAL PRIMARY KEY,galpao_id BIGINT NOT NULL REFERENCES galpoes(id),status VARCHAR(50) NOT NULL,responsavel VARCHAR(255),contagem_cega BOOLEAN NOT NULL DEFAULT TRUE,iniciado_em TIMESTAMP,enviado_em TIMESTAMP,aprovado_em TIMESTAMP,aprovado_por VARCHAR(255));
+CREATE TABLE inventario_itens(id BIGSERIAL PRIMARY KEY,inventario_id BIGINT NOT NULL REFERENCES inventarios(id) ON DELETE CASCADE,saldo_id BIGINT NOT NULL REFERENCES saldos_estoque(id),saldo_sistema NUMERIC(19,2) NOT NULL,quantidade_contada NUMERIC(19,2),divergencia NUMERIC(19,2),motivo VARCHAR(255),contado BOOLEAN NOT NULL DEFAULT FALSE);
+CREATE INDEX idx_inventarios_status ON inventarios(status);CREATE INDEX idx_inventario_itens_inventario ON inventario_itens(inventario_id);

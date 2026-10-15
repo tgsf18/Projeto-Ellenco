@@ -1,0 +1,10 @@
+ALTER TABLE saldos_estoque ADD COLUMN quantidade_reservada NUMERIC(19,2) NOT NULL DEFAULT 0;
+ALTER TABLE saldos_estoque ADD COLUMN quantidade_bloqueada NUMERIC(19,2) NOT NULL DEFAULT 0;
+ALTER TABLE saldos_estoque ADD COLUMN status VARCHAR(40) NOT NULL DEFAULT 'DISPONIVEL';
+ALTER TABLE saldos_estoque ADD COLUMN version BIGINT NOT NULL DEFAULT 0;
+UPDATE saldos_estoque SET localizacao_prateleira='NAO_ENDERECADO' WHERE localizacao_prateleira IS NULL;
+ALTER TABLE saldos_estoque ALTER COLUMN localizacao_prateleira SET NOT NULL;
+ALTER TABLE saldos_estoque DROP CONSTRAINT IF EXISTS uk_saldo_produto_galpao_lote;
+ALTER TABLE saldos_estoque ADD CONSTRAINT uk_saldo_produto_galpao_lote_local UNIQUE(produto_id,galpao_id,lote,localizacao_prateleira);
+CREATE INDEX idx_saldos_obra ON saldos_estoque(galpao_id);
+CREATE INDEX idx_saldos_validade ON saldos_estoque(data_validade) WHERE data_validade IS NOT NULL;

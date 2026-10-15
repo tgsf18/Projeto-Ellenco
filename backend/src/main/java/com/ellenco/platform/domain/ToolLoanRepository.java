@@ -1,0 +1,1 @@
+package com.ellenco.platform.domain;import org.springframework.data.jpa.repository.JpaRepository;import java.util.*;public interface ToolLoanRepository extends JpaRepository<ToolLoan,Long>{List<ToolLoan> findAllByOrderByEmprestadoEmDesc();Optional<ToolLoan> findFirstByFerramentaIdAndStatusOrderByEmprestadoEmDesc(Long id,String status);}

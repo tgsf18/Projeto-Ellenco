@@ -1,0 +1,13 @@
+ALTER TABLE movimentacoes ADD COLUMN saldo_origem_id BIGINT REFERENCES saldos_estoque(id);
+ALTER TABLE movimentacoes ADD COLUMN saldo_destino_id BIGINT REFERENCES saldos_estoque(id);
+ALTER TABLE movimentacoes ADD COLUMN lote VARCHAR(255);
+ALTER TABLE movimentacoes ADD COLUMN localizacao VARCHAR(255);
+ALTER TABLE movimentacoes ADD COLUMN obra_id BIGINT REFERENCES obras(id);
+ALTER TABLE movimentacoes ADD COLUMN eap VARCHAR(255);
+ALTER TABLE movimentacoes ADD COLUMN frente_servico VARCHAR(255);
+ALTER TABLE movimentacoes ADD COLUMN equipe VARCHAR(255);
+ALTER TABLE movimentacoes ADD COLUMN comprovante_codigo VARCHAR(40) UNIQUE;
+ALTER TABLE movimentacoes ADD COLUMN movimento_origem_id BIGINT REFERENCES movimentacoes(id);
+ALTER TABLE movimentacoes ADD COLUMN estornado BOOLEAN NOT NULL DEFAULT FALSE;
+CREATE INDEX idx_movimentacoes_produto_data ON movimentacoes(produto_id,created_at DESC);
+CREATE INDEX idx_movimentacoes_obra_data ON movimentacoes(obra_id,created_at DESC);

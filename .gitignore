@@ -1,0 +1,26 @@
+# Java
+**/target/
+**/.classpath
+**/.project
+**/.settings/
+**/*.log
+
+# Node / React
+node_modules/
+dist/
+.vite/
+coverage/
+
+# IDE
+.vscode/
+.idea/
+.DS_Store
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Ferramentas locais e ambiente Java da máquina virtual
+.runtimes/
+.tools/

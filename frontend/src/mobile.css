@@ -1,0 +1,19 @@
+@media (max-width: 767px) {
+  header > div > nav {
+    position: fixed; inset: auto 0 0 0; z-index: 50; width: 100% !important;
+    display: grid !important; grid-auto-flow: column; grid-auto-columns: minmax(72px,1fr);
+    gap: 0 !important; overflow-x: auto; padding: 8px 6px calc(8px + env(safe-area-inset-bottom));
+    background: rgba(255,255,255,.98); border-top: 1px solid #e2e8f0;
+    box-shadow: 0 -10px 30px rgba(15,23,42,.10);
+  }
+  header > div > nav button { min-width: 72px; padding: 10px 8px !important; font-size: 11px !important; line-height: 1.15; }
+  header > div > nav button[class*="bg-blue-50"] { background: #eaf2fb !important; color: #174675 !important; }
+  main { padding-bottom: 94px !important; }
+  header > div { min-height: 58px; }
+  header .ml-auto button:first-child { max-width: 116px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .page-heading,.section-title { align-items: stretch !important; }
+  .page-heading > button,.section-title > div { width: 100%; }
+  .page-heading > button,.section-title > div > button { width: 100%; }
+  .receipt-actions,.report-actions { display: grid; grid-template-columns: 1fr; }
+  .receipt-actions button,.report-actions button { width: 100%; }
+}
