@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/api/auth/register",
+      "destination": "https://onrender.com"
+    },
+    {
       "source": "/api/:path*",
       "destination": "https://onrender.com*"
     }
