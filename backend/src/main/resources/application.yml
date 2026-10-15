@@ -18,8 +18,16 @@ spring:
     open-in-view: false
   flyway:
     enabled: false
+  # CONFIGURAÇÃO DOS RECURSOS ESTÁTICOS DO REACT
+  mvc:
+    static-path-pattern: /**
+  web:
+    resources:
+      static-locations: classpath:/static/
+
 server:
-  port: ${SERVER_PORT:8083}
+  # Alterado de 8083 para bater exatamente com a porta 8080 exigida pelo seu Dockerfile
+  port: ${SERVER_PORT:8080}
   shutdown: graceful
 
 jwt:
@@ -53,4 +61,3 @@ integrations:
   rh: { url: "${RH_API_URL:}", token: "${RH_API_TOKEN:}" }
   sesmt: { url: "${SESMT_API_URL:}", token: "${SESMT_API_TOKEN:}" }
   esocial: { url: "${ESOCIAL_API_URL:}", token: "${ESOCIAL_API_TOKEN:}" }
-
