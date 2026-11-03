@@ -14,8 +14,10 @@ spring:
     show-sql: false
     open-in-view: false
 
-  flyway:
-    enabled: false
+flyway:
+  enabled: ${FLYWAY_ENABLED:false}
+  locations: classpath:db/migration
+  baseline-on-migrate: true
 
   mvc:
     static-path-pattern: /**
@@ -25,7 +27,7 @@ spring:
       static-locations: classpath:/static/
 
 server:
-  port: ${SERVER_PORT:8080}
+  port: ${PORT:${SERVER_PORT:8080}}
   shutdown: graceful
 
 jwt:
