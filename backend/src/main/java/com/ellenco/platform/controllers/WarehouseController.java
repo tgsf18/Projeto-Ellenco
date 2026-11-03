@@ -22,23 +22,28 @@ public class WarehouseController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN','SUPERVISOR','FUNCIONARIO')")
+    @PreAuthorize("hasAnyRole('GLOBAL_ADMIN','CEO','ADMIN','SUPERVISOR','FUNCIONARIO')")
     public List<Warehouse> list() {
         return warehouseRepository.findAll();
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN','SUPERVISOR')")
+    @PreAuthorize("hasAnyRole('GLOBAL_ADMIN','CEO','ADMIN','SUPERVISOR')")
     public ResponseEntity<Warehouse> create(@RequestBody Warehouse warehouse) {
-        if (warehouse.getNome() == null || warehouse.getNome().isBlank() || warehouse.getCodigo() == null || warehouse.getCodigo().isBlank()) throw new IllegalArgumentException("Nome e código do galpão são obrigatórios.");
-        if (warehouse.getObra() == null || warehouse.getObra().getId() == null) throw new IllegalArgumentException("Selecione a obra do galpão.");
-        warehouse.setObra(constructionSiteRepository.findById(warehouse.getObra().getId()).orElseThrow(() -> new IllegalArgumentException("Obra não encontrada.")));
+        if (warehouse.getNome() == null || warehouse.getNome().isBlank() || warehouse.getCodigo() == null || warehouse.getCodigo().isBlank()) {
+            throw new IllegalArgumentException("Nome e código do galpão são obrigatórios.");
+        }
+        if (warehouse.getObra() == null || warehouse.getObra().getId() == null) {
+            throw new IllegalArgumentException("Selecione a obra vinculada ao galpão.");
+        }
+        warehouse.setObra(constructionSiteRepository.findById(warehouse.getObra().getId())
+                .orElseThrow(() -> new IllegalArgumentException("Obra não encontrada.")));
         Warehouse saved = warehouseRepository.save(warehouse);
         return ResponseEntity.ok(saved);
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','SUPERVISOR')")
+    @PreAuthorize("hasAnyRole('GLOBAL_ADMIN','CEO','ADMIN','SUPERVISOR')")
     public ResponseEntity<Warehouse> update(@PathVariable Long id, @RequestBody Warehouse details) {
         return warehouseRepository.findById(id).map(w -> {
             w.setNome(details.getNome());

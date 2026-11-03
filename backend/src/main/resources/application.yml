@@ -1,16 +1,31 @@
+```yaml
 spring:
   datasource:
-    url: ${SPRING_DATASOURCE_URL}
-    username: ${SPRING_DATASOURCE_USERNAME}
-    password: ${SPRING_DATASOURCE_PASSWORD}
-    driver-class-name: org.postgresql.Driver
+    url: ${SPRING_DATASOURCE_URL:jdbc:h2:file:./data/ellenco_platform;AUTO_SERVER=TRUE}
+    username: ${SPRING_DATASOURCE_USERNAME:sa}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
+    driver-class-name: ${SPRING_DATASOURCE_DRIVER_CLASS_NAME:org.h2.Driver}
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:10}
+      minimum-idle: ${DB_POOL_MIN_IDLE:2}
+      idle-timeout: ${DB_IDLE_TIMEOUT:300000}
+      max-lifetime: ${DB_MAX_LIFETIME:1800000}
+      connection-timeout: ${DB_CONN_TIMEOUT:30000}
+      keepalive-time: ${DB_KEEPALIVE_TIME:60000}
+
+  h2:
+    console:
+      enabled: ${H2_CONSOLE_ENABLED:false}
+      path: /h2-console
 
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: ${JPA_HIBERNATE_DDL_AUTO:update}
     properties:
       hibernate:
-        format_sql: true
+        format_sql: false
+        jdbc:
+          time_zone: UTC
     show-sql: false
     open-in-view: false
 
@@ -30,8 +45,8 @@ server:
   port: ${PORT:${SERVER_PORT:8080}}
 
 jwt:
-  secret: ${JWT_SECRET:EllencoSuperSecretJwtKeyForAuthentication2026Secure!}
-  expiration: 86400000
+  secret: ${JWT_SECRET:EllencoOperationalPlatformDefaultSecureSecretKey2026MustBeOverriddenInProduction!}
+  expiration: ${JWT_EXPIRATION:86400000}
 
 management:
   endpoints:
@@ -48,7 +63,7 @@ cors:
 
 ellenco:
   bootstrap:
-    enabled: false
+    enabled: ${BOOTSTRAP_ENABLED:false}
   app-url: ${APP_URL:http://localhost:5173}
 
 email:
@@ -60,3 +75,4 @@ integrations:
   rh: { url: "${RH_API_URL:}", token: "${RH_API_TOKEN:}" }
   sesmt: { url: "${SESMT_API_URL:}", token: "${SESMT_API_TOKEN:}" }
   esocial: { url: "${ESOCIAL_API_URL:}", token: "${ESOCIAL_API_TOKEN:}" }
+```s

@@ -1,1 +1,19 @@
-package com.ellenco.platform.domain;import org.springframework.data.jpa.repository.JpaRepository;import java.util.*;public interface ToolLoanRepository extends JpaRepository<ToolLoan,Long>{List<ToolLoan> findAllByOrderByEmprestadoEmDesc();Optional<ToolLoan> findFirstByFerramentaIdAndStatusOrderByEmprestadoEmDesc(Long id,String status);}
+package com.ellenco.platform.domain;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Optional;
+
+@Repository
+public interface ToolLoanRepository extends JpaRepository<ToolLoan, Long> {
+    List<ToolLoan> findAllByOrderByEmprestadoEmDesc();
+    Page<ToolLoan> findAllByOrderByEmprestadoEmDesc(Pageable pageable);
+
+    Optional<ToolLoan> findFirstByFerramentaIdAndStatusOrderByEmprestadoEmDesc(Long id, String status);
+
+    long countByStatus(String status);
+}

@@ -5,6 +5,7 @@ import com.ellenco.platform.auth.User;
 import com.ellenco.platform.auth.UserRepository;
 import com.ellenco.platform.auth.UserService;
 import com.ellenco.platform.auth.RegisterRequest;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -25,28 +26,53 @@ public class UserController {
     }
 
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('GLOBAL_ADMIN','ADMIN','CEO')")
     public List<User> listUsers() {
         return userRepository.findAll();
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
-    public User createUser(@RequestBody RegisterRequest request, @RequestParam(defaultValue = "SUPERVISOR") Role role) {
-        return userService.createUser(request, role);
+    @PreAuthorize("hasAnyRole('GLOBAL_ADMIN','ADMIN','CEO')")
+    public User createUser(@RequestBody RegisterRequest request,
+                           @RequestParam(defaultValue = "SUPERVISOR") Role role,
+                           @AuthenticationPrincipal User currentUser) {
+        return userService.createManagedUser(request, role, currentUser);
+    }
+
+    @PatchMapping("/{id}/status")
+    @PreAuthorize("hasAnyRole('GLOBAL_ADMIN','ADMIN','CEO')")
+    public ResponseEntity<User> toggleStatus(@PathVariable Long id, @RequestBody Map<String, Boolean> body, @AuthenticationPrincipal User currentUser) {
+        User target = userRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado."));
+        if (target.getRole() == Role.GLOBAL_ADMIN && currentUser.getRole() != Role.GLOBAL_ADMIN) {
+            throw new IllegalArgumentException("Apenas administradores globais podem gerenciar contas de Administrador Global.");
+        }
+        if (body.containsKey("ativo")) {
+            target.setAtivo(body.get("ativo"));
+        }
+        return ResponseEntity.ok(userRepository.save(target));
     }
 
     @GetMapping("/me")
     @PreAuthorize("isAuthenticated()")
-    public User me(@AuthenticationPrincipal User user) { return user; }
+    public User me(@AuthenticationPrincipal User user) {
+        return user;
+    }
 
     @PatchMapping("/me")
     @PreAuthorize("isAuthenticated()")
     public User updateMyProfile(@RequestBody Map<String, String> body, @AuthenticationPrincipal User user) {
-        if (body.containsKey("nome") && !body.get("nome").isBlank()) user.setNome(body.get("nome").trim());
-        if (body.containsKey("telefone")) user.setTelefone(body.get("telefone"));
-        if (body.containsKey("obra")) user.setObra(body.get("obra"));
-        if (body.containsKey("avatar")) user.setAvatar(body.get("avatar"));
+        if (body.containsKey("nome") && !body.get("nome").isBlank()) {
+            user.setNome(body.get("nome").trim());
+        }
+        if (body.containsKey("telefone")) {
+            user.setTelefone(body.get("telefone"));
+        }
+        if (body.containsKey("obra")) {
+            user.setObra(body.get("obra"));
+        }
+        if (body.containsKey("avatar")) {
+            user.setAvatar(body.get("avatar"));
+        }
         return userRepository.save(user);
     }
 }

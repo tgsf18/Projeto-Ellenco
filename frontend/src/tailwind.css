@@ -2,3 +2,16 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer utilities {
+  .page-enter {
+    animation: fadeSlideIn 0.35s cubic-bezier(0.2, 0.9, 0.25, 1) forwards;
+  }
+  .bento-card-interactive {
+    transition: transform 0.25s cubic-bezier(0.2, 0.9, 0.25, 1), box-shadow 0.25s cubic-bezier(0.2, 0.9, 0.25, 1), border-color 0.25s ease;
+  }
+  .bento-card-interactive:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 16px 36px rgba(23, 70, 117, 0.09);
+  }
+}

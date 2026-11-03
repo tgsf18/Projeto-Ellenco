@@ -1,11 +1,14 @@
 package com.ellenco.platform.domain;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 public class ReceiptService {
@@ -36,6 +39,10 @@ public class ReceiptService {
 
     public List<Receipt> listAll() {
         return receiptRepository.findAllByOrderByDataRecebimentoDesc();
+    }
+
+    public Page<Receipt> listPaged(Pageable pageable) {
+        return receiptRepository.findAllByOrderByDataRecebimentoDesc(pageable);
     }
 
     public Receipt getById(Long id) {
@@ -107,38 +114,76 @@ public class ReceiptService {
         if (r.getDataConferencia() == null) r.setDataConferencia(LocalDateTime.now());
         if (r.getResponsavelConferencia() == null) r.setResponsavelConferencia(userNome != null ? userNome : userEmail);
 
-        // Se o recebimento foi aprovado ou com divergências aceitas, dá entrada automática no estoque dos produtos associados
+        // Se o recebimento foi aprovado ou com divergências aceitas, dá entrada consistente no estoque
         if ("APROVADO".equalsIgnoreCase(statusFinal) || "COM_DIVERGENCIAS".equalsIgnoreCase(statusFinal)) {
+            Warehouse targetWarehouse = null;
+            if (r.getGalpaoId() != null) {
+                targetWarehouse = warehouseRepository.findById(r.getGalpaoId()).orElse(null);
+            }
+            if (targetWarehouse == null) {
+                targetWarehouse = warehouseRepository.findAll().stream().findFirst().orElse(null);
+            }
+
             for (ReceiptItem item : r.getItens()) {
                 if (item.getProdutoId() != null) {
+                    final Warehouse finalWh = targetWarehouse;
                     productRepository.findById(item.getProdutoId()).ifPresent(prod -> {
                         BigDecimal qtdEntrada = item.getQuantidadeConferida().compareTo(BigDecimal.ZERO) > 0 ?
                                 item.getQuantidadeConferida() : item.getQuantidadeNota();
 
-                        BigDecimal novoSaldo = prod.getQuantidadeAtual().add(qtdEntrada);
-                        prod.setQuantidadeAtual(novoSaldo);
+                        Warehouse wh = (finalWh != null) ? finalWh : prod.getGalpao();
+
+                        StockBalance balance = null;
+                        if (wh != null) {
+                            String lot = (item.getLote() == null || item.getLote().isBlank()) ? "SEM_LOTE" : item.getLote().trim();
+                            String location = (prod.getLocalizacaoPrateleira() == null || prod.getLocalizacaoPrateleira().isBlank()) ? "NAO_ENDERECADO" : prod.getLocalizacaoPrateleira().trim();
+
+                            balance = balanceRepository.findByProdutoIdAndGalpaoIdAndLoteAndLocalizacaoPrateleira(prod.getId(), wh.getId(), lot, location)
+                                    .orElseGet(() -> {
+                                        StockBalance b = new StockBalance();
+                                        b.setProduto(prod);
+                                        b.setGalpao(wh);
+                                        b.setLote(lot);
+                                        b.setLocalizacaoPrateleira(location);
+                                        b.setQuantidadeMinima(prod.getQuantidadeMinima());
+                                        b.setQuantidadeAtual(BigDecimal.ZERO);
+                                        b.setQuantidadeReservada(BigDecimal.ZERO);
+                                        b.setQuantidadeBloqueada(BigDecimal.ZERO);
+                                        b.setStatus("DISPONIVEL");
+                                        return b;
+                                    });
+
+                            balance.setDataValidade(item.getDataValidade() != null ? item.getDataValidade() : balance.getDataValidade());
+                            balance.setQuantidadeAtual(balance.getQuantidadeAtual().add(qtdEntrada));
+                            balance = balanceRepository.save(balance);
+
+                            // Recalcula o saldo total de forma agregada
+                            BigDecimal totalSaldos = balanceRepository.sumQuantidadeByProdutoId(prod.getId());
+                            prod.setQuantidadeAtual(totalSaldos);
+                        } else {
+                            prod.setQuantidadeAtual(prod.getQuantidadeAtual().add(qtdEntrada));
+                        }
+
                         prod.setUpdatedAt(LocalDateTime.now());
                         productRepository.save(prod);
-
-                        if (r.getGalpaoId() != null) warehouseRepository.findById(r.getGalpaoId()).ifPresent(galpao -> {
-                            String lot = item.getLote() == null || item.getLote().isBlank() ? "SEM_LOTE" : item.getLote();
-                            String location = prod.getLocalizacaoPrateleira() == null || prod.getLocalizacaoPrateleira().isBlank() ? "NAO_ENDERECADO" : prod.getLocalizacaoPrateleira();
-                            StockBalance balance = balanceRepository.findByProdutoIdAndGalpaoIdAndLoteAndLocalizacaoPrateleira(prod.getId(), galpao.getId(), lot, location).orElseGet(StockBalance::new);
-                            balance.setProduto(prod); balance.setGalpao(galpao); balance.setLote(lot); balance.setLocalizacaoPrateleira(location);
-                            balance.setDataValidade(item.getDataValidade()); balance.setQuantidadeAtual(balance.getQuantidadeAtual().add(qtdEntrada));
-                            balance.setQuantidadeMinima(prod.getQuantidadeMinima()); balanceRepository.save(balance);
-                        });
 
                         InventoryMovement mov = new InventoryMovement(
                                 prod,
                                 OperationType.ENTRADA,
                                 qtdEntrada,
                                 r.getFornecedor() + " (NF " + r.getNumeroNota() + ")",
-                                r.getGalpaoDestinoNome() != null ? r.getGalpaoDestinoNome() : "Galpão Principal",
+                                r.getGalpaoDestinoNome() != null ? r.getGalpaoDestinoNome() : (wh != null ? wh.getNome() : "Almoxarifado"),
                                 userNome != null ? userNome : userEmail,
                                 "Recebimento NF " + r.getNumeroNota(),
-                                "Entrada automática gerada pela finalização do recebimento #" + r.getId()
+                                "Entrada automática gerada pela conferência do recebimento #" + r.getId()
                         );
+                        if (balance != null) {
+                            mov.setSaldoDestinoId(balance.getId());
+                            mov.setLote(balance.getLote());
+                            mov.setLocalizacao(balance.getLocalizacaoPrateleira());
+                        }
+                        mov.setComprovanteCodigo("REC-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
+                        mov.setCreatedAt(LocalDateTime.now());
                         movementRepository.save(mov);
                     });
                 }

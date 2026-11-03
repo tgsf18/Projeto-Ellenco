@@ -20,19 +20,19 @@ public class StockController {
     }
 
     @GetMapping("/products")
-    @PreAuthorize("hasAnyRole('ADMIN','SUPERVISOR')")
+    @PreAuthorize("hasAnyRole('GLOBAL_ADMIN','CEO','ADMIN','SUPERVISOR','FUNCIONARIO')")
     public List<Product> listProducts() {
         return stockService.listProducts();
     }
 
     @GetMapping("/products/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','SUPERVISOR')")
+    @PreAuthorize("hasAnyRole('GLOBAL_ADMIN','CEO','ADMIN','SUPERVISOR','FUNCIONARIO')")
     public Product getProduct(@PathVariable Long id) {
         return stockService.getProduct(id);
     }
 
     @PostMapping("/products")
-    @PreAuthorize("hasAnyRole('ADMIN','SUPERVISOR')")
+    @PreAuthorize("hasAnyRole('GLOBAL_ADMIN','CEO','ADMIN','SUPERVISOR')")
     public ResponseEntity<Product> createProduct(@Valid @RequestBody Product product, @AuthenticationPrincipal User user) {
         String email = user != null ? user.getEmail() : "sistema";
         String nome = user != null ? user.getNome() : "Sistema";
@@ -40,7 +40,7 @@ public class StockController {
     }
 
     @PutMapping("/products/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','SUPERVISOR')")
+    @PreAuthorize("hasAnyRole('GLOBAL_ADMIN','CEO','ADMIN','SUPERVISOR')")
     public ResponseEntity<Product> updateProduct(@PathVariable Long id, @RequestBody Product details, @AuthenticationPrincipal User user) {
         String email = user != null ? user.getEmail() : "sistema";
         String nome = user != null ? user.getNome() : "Sistema";
@@ -48,7 +48,7 @@ public class StockController {
     }
 
     @DeleteMapping("/products/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('GLOBAL_ADMIN','CEO','ADMIN')")
     public ResponseEntity<Void> deleteProduct(@PathVariable Long id, @AuthenticationPrincipal User user) {
         String email = user != null ? user.getEmail() : "sistema";
         String nome = user != null ? user.getNome() : "Sistema";
@@ -57,13 +57,13 @@ public class StockController {
     }
 
     @GetMapping("/categories")
-    @PreAuthorize("hasAnyRole('ADMIN','SUPERVISOR')")
+    @PreAuthorize("hasAnyRole('GLOBAL_ADMIN','CEO','ADMIN','SUPERVISOR')")
     public List<Category> listCategories() {
         return stockService.listCategories();
     }
 
     @PostMapping("/categories")
-    @PreAuthorize("hasAnyRole('ADMIN','SUPERVISOR')")
+    @PreAuthorize("hasAnyRole('GLOBAL_ADMIN','CEO','ADMIN','SUPERVISOR')")
     public ResponseEntity<Category> createCategory(@RequestBody Category category, @AuthenticationPrincipal User user) {
         String email = user != null ? user.getEmail() : "sistema";
         String nome = user != null ? user.getNome() : "Sistema";
@@ -71,13 +71,13 @@ public class StockController {
     }
 
     @GetMapping("/movements")
-    @PreAuthorize("hasAnyRole('ADMIN','SUPERVISOR')")
+    @PreAuthorize("hasAnyRole('GLOBAL_ADMIN','CEO','ADMIN','SUPERVISOR')")
     public List<InventoryMovement> listMovements() {
         return stockService.listMovements();
     }
 
     @PostMapping("/movements")
-    @PreAuthorize("hasAnyRole('ADMIN','SUPERVISOR')")
+    @PreAuthorize("hasAnyRole('GLOBAL_ADMIN','CEO','ADMIN','SUPERVISOR')")
     public ResponseEntity<InventoryMovement> createMovement(@RequestBody InventoryMovement movement, @AuthenticationPrincipal User user) {
         String email = user != null ? user.getEmail() : "sistema";
         String nome = user != null ? user.getNome() : "Sistema";
@@ -85,7 +85,7 @@ public class StockController {
     }
 
     @GetMapping("/alerts/low-stock")
-    @PreAuthorize("hasAnyRole('ADMIN','SUPERVISOR')")
+    @PreAuthorize("hasAnyRole('GLOBAL_ADMIN','CEO','ADMIN','SUPERVISOR')")
     public List<Product> listLowStock() {
         return stockService.listBaixoEstoque();
     }

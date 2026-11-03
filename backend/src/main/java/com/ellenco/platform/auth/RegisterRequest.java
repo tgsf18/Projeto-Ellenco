@@ -13,13 +13,19 @@ public record RegisterRequest(
         String email,
 
         @NotBlank(message = "Senha obrigatória")
-        @Size(min = 10, message = "Senha deve ter pelo menos 10 caracteres")
+        @Size(min = 8, message = "Senha deve ter pelo menos 8 caracteres")
         String password,
 
         String cargo,
-        @NotBlank(message = "CPF obrigatório") String cpf,
+        @NotBlank(message = "CPF obrigatório")
+        String cpf,
+
         String telefone,
         String obra,
-        String matricula
+        String matricula,
+        Role role
 ) {
+    public RegisterRequest(String nome, String email, String password, String cargo, String cpf, String telefone, String obra, String matricula) {
+        this(nome, email, password, cargo, cpf, telefone, obra, matricula, null);
+    }
 }

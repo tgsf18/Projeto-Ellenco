@@ -1,26 +1,37 @@
-# Java
+# Java / Maven
 **/target/
 **/.classpath
 **/.project
 **/.settings/
 **/*.log
+*.jar
+backend/app.jar
+
+# Databases locais e temporários
+*.db
+*.mv.db
+*.lock.db
+backend/data/
+data/
 
 # Node / React
 node_modules/
+**/node_modules/
 dist/
+**/dist/
 .vite/
 coverage/
 
-# IDE
+# IDE / OS
 .vscode/
 .idea/
 .DS_Store
+Thumbs.db
 
 # Env
 .env
 .env.*
 !.env.example
-
-# Ferramentas locais e ambiente Java da máquina virtual
-.runtimes/
-.tools/
+# Cache e arquivos gerados pelo TypeScript
+*.tsbuildinfo
+frontend/vite.config.d.ts
