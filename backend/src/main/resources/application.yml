@@ -15,8 +15,8 @@ spring:
     open-in-view: false
 
   flyway:
-    enabled: false
-
+   ddl-auto: validate
+   
   mvc:
     static-path-pattern: /**
 
