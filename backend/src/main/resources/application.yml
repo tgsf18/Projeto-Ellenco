@@ -1,4 +1,4 @@
-```yaml
+
 spring:
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:h2:file:./data/ellenco_platform;AUTO_SERVER=TRUE}
@@ -75,4 +75,3 @@ integrations:
   rh: { url: "${RH_API_URL:}", token: "${RH_API_TOKEN:}" }
   sesmt: { url: "${SESMT_API_URL:}", token: "${SESMT_API_TOKEN:}" }
   esocial: { url: "${ESOCIAL_API_URL:}", token: "${ESOCIAL_API_TOKEN:}" }
-```s
