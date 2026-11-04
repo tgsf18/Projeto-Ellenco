@@ -1,1 +1,43 @@
-import{useEffect,useRef,useState}from'react';export default function CameraScanner({onRead,onClose}:{onRead:(v:string)=>void;onClose:()=>void}){const video=useRef<HTMLVideoElement>(null),[error,setError]=useState('');useEffect(()=>{let stream:MediaStream|undefined,timer:number;navigator.mediaDevices?.getUserMedia({video:{facingMode:'environment'}}).then(async s=>{stream=s;if(video.current){video.current.srcObject=s;await video.current.play()}const Detector=(window as any).BarcodeDetector;if(!Detector)return setError('Leitura automática indisponível neste navegador. Use o código manual.');const detector=new Detector({formats:['qr_code','code_128','ean_13','ean_8']});timer=window.setInterval(async()=>{try{const found=await detector.detect(video.current);if(found[0]?.rawValue){onRead(found[0].rawValue);onClose()}}catch{}},500)}).catch(()=>setError('Não foi possível acessar a câmera. Verifique a permissão.'));return()=>{clearInterval(timer);stream?.getTracks().forEach(t=>t.stop())}},[]);return <div className="scanner-overlay"><div><video ref={video}/><span className="scanner-frame"/><p>{error||'Aponte a câmera para o QR Code ou código de barras'}</p><button className="btn" onClick={onClose}>Fechar câmera</button></div></div>}
+import { useEffect, useRef, useState } from 'react'
+import type { IScannerControls } from '@zxing/browser'
+
+export default function CameraScanner({ onRead, onClose }: { onRead: (value: string) => void; onClose: () => void }) {
+  const video = useRef<HTMLVideoElement>(null)
+  const callbacks = useRef({ onRead, onClose })
+  const [error, setError] = useState('')
+  callbacks.current = { onRead, onClose }
+
+  useEffect(() => {
+    let controls: IScannerControls | undefined
+    let active = true
+    const start = async () => {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setError('Este navegador não permite acessar a câmera. Abra o link em um navegador atualizado ou digite o código no campo de busca.')
+        return
+      }
+      if (!video.current) return
+      try {
+        const { BrowserMultiFormatReader } = await import('@zxing/browser')
+        if (!active || !video.current) return
+        const reader = new BrowserMultiFormatReader()
+        controls = await reader.decodeFromVideoDevice(undefined, video.current, (result) => {
+          if (!active || !result) return
+          active = false
+          callbacks.current.onRead(result.getText())
+          callbacks.current.onClose()
+        })
+        if (!active) controls.stop()
+      } catch {
+        if (active) setError('Não foi possível iniciar a câmera. Verifique a permissão e use HTTPS para fazer a leitura.')
+      }
+    }
+    void start()
+
+    return () => {
+      active = false
+      controls?.stop()
+    }
+  }, [])
+
+  return <div className="scanner-overlay"><div><video ref={video} muted playsInline/><span className="scanner-frame"/><p>{error||'Aponte a câmera para o QR Code ou código de barras'}</p><button className="btn" onClick={onClose}>Fechar câmera</button></div></div>
+}

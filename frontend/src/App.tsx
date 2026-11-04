@@ -16,6 +16,9 @@ import InventoryPanel from './components/InventoryPanel'
 import ToolsPanel from './components/ToolsPanel'
 import SyncPanel from './components/SyncPanel'
 import ToastHost from './components/ToastHost'
+import QrDestinationPage from './components/QrDestinationPage'
+import { QrTarget, qrTargetFromCurrentUrl } from './utils/qrDestination'
+import './product-qr.css'
 
 type View = 'home' | 'dashboard' | 'receipts' | 'stock' | 'movements' | 'inventory' | 'tools' | 'epi' | 'sync' | 'employees' | 'audit' | 'reports' | 'management' | 'account'
 type Theme = 'light' | 'dark'
@@ -67,7 +70,8 @@ export default function App() {
   const [mobileMenu, setMobileMenu] = useState(false)
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('ellenco_sidebar') === 'collapsed')
   const [theme, setTheme] = useState<Theme>(() => localStorage.getItem('ellenco_theme') === 'dark' ? 'dark' : 'light')
-  const [view, setView] = useState<View>('home')
+  const [qrTarget, setQrTarget] = useState<QrTarget | null>(() => qrTargetFromCurrentUrl())
+  const [view, setView] = useState<View>(() => qrTarget?.kind === 'produto' ? 'stock' : qrTarget?.kind === 'ferramenta' ? 'tools' : 'home')
   const [dashboard, setDashboard] = useState<any>(null)
   const dashboardFetchedAt = useRef(0)
   const dashboardInFlight = useRef<Promise<void> | null>(null)
@@ -163,6 +167,13 @@ export default function App() {
   if (!user) return <Login onLogin={setUser} />
 
   const go = (next: View) => {
+    if (qrTarget) {
+      const url = new URL(window.location.href)
+      url.searchParams.delete('produto')
+      url.searchParams.delete('ferramenta')
+      window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`)
+      setQrTarget(null)
+    }
     setView(next)
     setMobileMenu(false)
   }
@@ -178,7 +189,8 @@ export default function App() {
   const alertCount = (dashboard?.alerts || []).length
   const current = allowed.includes(view) ? view : 'home'
 
-  const content = current === 'home' ? <HomePage user={user} data={dashboard} onNavigate={go} />
+  const content = qrTarget ? <QrDestinationPage target={qrTarget} onBack={() => go('home')} />
+    : current === 'home' ? <HomePage user={user} data={dashboard} onNavigate={go} />
     : current === 'dashboard' ? <Dashboard data={dashboard} onNavigate={go} />
     : current === 'account' ? <AccountPanel user={user} onUpdate={setUser} />
     : current === 'stock' ? <StockPanel />
@@ -251,7 +263,7 @@ export default function App() {
           </button>
           <div>
             <span className="header-context">ELLENCO · Operação Integrada</span>
-            <strong>{labels[current]}</strong>
+            <strong>{qrTarget ? 'Registro via QR Code' : labels[current]}</strong>
           </div>
           <div className="header-actions">
             <span className="connection-pill"><i /> Online</span>

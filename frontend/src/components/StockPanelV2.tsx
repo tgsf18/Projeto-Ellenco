@@ -1,10 +1,12 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, Boxes, CalendarClock, Package, PackageCheck } from 'lucide-react'
+import { AlertTriangle, Boxes, CalendarClock, Package, PackageCheck, QrCode } from 'lucide-react'
 import { request } from '../api'
 import Modal from './Modal'
 import CameraScanner from './CameraScanner'
 import SearchableSelect from './SearchableSelect'
 import ModuleMetrics from './ModuleMetrics'
+import QrCodeDialog from './QrCodeDialog'
+import { parseQrTarget } from '../utils/qrDestination'
 
 type Site = { id: number; nome: string }
 type Warehouse = { id: number; nome: string; obra?: Site }
@@ -20,6 +22,7 @@ export default function StockPanelV2() {
   const [search, setSearch] = useState(''), [site, setSite] = useState(''), [modal, setModal] = useState<'product'|'move'|null>(null), [type, setType] = useState<OpType>('SAIDA')
   const [sourceBalance, setSourceBalance] = useState(''), [destination, setDestination] = useState(''), [returnProduct, setReturnProduct] = useState(''), [newProductWarehouse, setNewProductWarehouse] = useState(''), [isEpiDraft, setIsEpiDraft] = useState(false)
   const [message, setMessage] = useState(''), [busy, setBusy] = useState(false), [scan, setScan] = useState(false)
+  const [qrProduct, setQrProduct] = useState<Product | null>(null)
   const load = async () => {
     try { const [p,b,w,a] = await Promise.all([request<Product[]>('/stock/products'),request<Balance[]>('/stock/balances'),request<Warehouse[]>('/warehouses'),request<Alerts>('/stock/balances/alerts')]); setProducts(p);setBalances(b);setWarehouses(w);setAlerts(a) }
     catch (error) { setMessage(error instanceof Error ? error.message : 'Não foi possível carregar o estoque.') }
@@ -62,11 +65,11 @@ export default function StockPanelV2() {
 
   return <section className="panel-page">
     <div className="page-heading"><div><p className="eyebrow">LOGÍSTICA · ALMOXARIFADO</p><h1>Estoque por obra</h1><p>Consulte produtos e lotes. Saídas e transferências baixam saldos identificados e geram histórico.</p></div><div className="table-actions"><button className="secondary-button" onClick={()=>setScan(true)}>Ler código</button><button className="secondary-button" onClick={()=>{setType('DEVOLUCAO');setModal('move')}}>Registrar devolução</button><button className="primary-button" onClick={()=>setModal('product')}>Novo produto</button><button className="primary-button" onClick={()=>{setType('SAIDA');setModal('move')}}>Movimentar</button></div></div>
-    {scan&&<CameraScanner onRead={value=>{setSearch(value);setMessage(`Busca aplicada para o código ${value}.`)}} onClose={()=>setScan(false)}/>}
+    {scan&&<CameraScanner onRead={value=>{const target=parseQrTarget(value);if(target){window.location.assign(`/?${target.kind}=${target.id}`);return}setSearch(value);setMessage(`Busca aplicada para o código ${value}.`)}} onClose={()=>setScan(false)}/>}
     {message&&<p className="feedback" role="status">{message}</p>}
     <ModuleMetrics items={[{label:'Produtos cadastrados',value:products.length,detail:'Catálogo operacional',icon:<Package/>,tone:'blue'},{label:'Abaixo do mínimo',value:alerts.estoqueBaixo.length,detail:'Revisar reposição',icon:<AlertTriangle/>,tone:'red'},{label:'Próximos do vencimento',value:alerts.proximosVencimento.length,detail:'Lotes em até 30 dias',icon:<CalendarClock/>,tone:'amber'},{label:'Lotes vencidos',value:alerts.vencidos.length,detail:'Bloqueados para saída',icon:<Boxes/>,tone:'red'}]}/>
     <div className="stock-filter-row"><label className="module-search-label"><span>Pesquisar produto, código, lote, obra ou galpão</span><input className="module-search" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Digite para filtrar os itens cadastrados"/></label><label className="module-search-label"><span>Filtrar por obra</span><select className="module-search" value={site} onChange={e=>setSite(e.target.value)}><option value="">Todas as obras</option>{sites.map(s=><option value={s.id} key={s.id}>{s.nome}</option>)}</select></label></div>
-    <div className="table-card"><table><thead><tr><th>Produto</th><th>Obra / galpão</th><th>Lote / validade</th><th>Saldo total</th><th>Classificação</th><th>Situação</th></tr></thead><tbody>{options.map(p=><tr key={p.id}><td><b>{p.nome}</b><small>{p.codigo}{(p.epi||p.isEpi)?` · EPI · CA ${p.numeroCa||'pendente'}`:''}</small></td><td>{p.galpao?.obra?.nome||'—'}<small>{p.galpao?.nome||'Saldo distribuído por lote'}</small></td><td>{p.lote||'Consulte saldos por lote'}<small>{fmt(p.dataValidade)}</small></td><td>{p.quantidadeAtual} {p.unidade}<small>Mínimo {p.quantidadeMinima} {p.unidade}</small></td><td><span className={`status ${(p.epi||p.isEpi)?'ok':''}`}>{(p.epi||p.isEpi)?'EPI':'Material'}</span></td><td><span className={`status ${p.baixoEstoque?'danger':'ok'}`}>{p.baixoEstoque?'Repor estoque':'Regular'}</span></td></tr>)}{!options.length&&<tr><td colSpan={6}><div className="empty-state">Nenhum produto encontrado para este filtro.</div></td></tr>}</tbody></table></div>
+    <div className="table-card"><table><thead><tr><th>Produto</th><th>Obra / galpão</th><th>Lote / validade</th><th>Saldo total</th><th>Classificação</th><th>Situação</th><th>Acesso</th></tr></thead><tbody>{options.map(p=><tr key={p.id}><td><b>{p.nome}</b><small>{p.codigo}{(p.epi||p.isEpi)?` · EPI · CA ${p.numeroCa||'pendente'}`:''}</small></td><td>{p.galpao?.obra?.nome||'—'}<small>{p.galpao?.nome||'Saldo distribuído por lote'}</small></td><td>{p.lote||'Consulte saldos por lote'}<small>{fmt(p.dataValidade)}</small></td><td>{p.quantidadeAtual} {p.unidade}<small>Mínimo {p.quantidadeMinima} {p.unidade}</small></td><td><span className={`status ${(p.epi||p.isEpi)?'ok':''}`}>{(p.epi||p.isEpi)?'EPI':'Material'}</span></td><td><span className={`status ${p.baixoEstoque?'danger':'ok'}`}>{p.baixoEstoque?'Repor estoque':'Regular'}</span></td><td><button className="qr-action-button" title={`Gerar QR Code de ${p.nome}`} aria-label={`Gerar QR Code de ${p.nome}`} onClick={()=>setQrProduct(p)}><QrCode size={18}/><span>QR Code</span></button></td></tr>)}{!options.length&&<tr><td colSpan={7}><div className="empty-state">Nenhum produto encontrado para este filtro.</div></td></tr>}</tbody></table></div>
     {!!balances.length&&<section className="stock-lot-section"><div className="inventory-detail-heading"><div><p className="eyebrow">RASTREABILIDADE</p><h2>Saldos por lote e localização</h2></div><span>{balances.length} registros de saldo</span></div><div className="table-card"><table><thead><tr><th>Produto</th><th>Obra / galpão</th><th>Lote / prateleira</th><th>Validade</th><th>Total</th><th>Reservado</th><th>Bloqueado</th><th>Disponível</th></tr></thead><tbody>{balances.map(b=><tr key={b.id}><td><b>{b.produto.nome}</b><small>{b.produto.codigo}</small></td><td>{b.galpao.obra?.nome||'—'}<small>{b.galpao.nome}</small></td><td>{b.lote}<small>{b.localizacaoPrateleira||'Não endereçado'}</small></td><td>{fmt(b.dataValidade)}</td><td>{b.quantidadeAtual} {b.produto.unidade}</td><td>{b.quantidadeReservada||0}</td><td>{b.quantidadeBloqueada||0}</td><td><b className={b.quantidadeDisponivel<=b.quantidadeMinima?'danger-text':''}>{b.quantidadeDisponivel} {b.produto.unidade}</b></td></tr>)}</tbody></table></div></section>}
     <Modal open={modal==='product'} title="Novo produto do catálogo" onClose={()=>!busy&&setModal(null)}><form className="product-form" onSubmit={saveProduct}>
       <label>Código interno<input name="codigo" placeholder="Código do catálogo" required/></label><label>Nome do produto<input name="nome" placeholder="Nome padronizado" required/></label>
@@ -84,5 +87,6 @@ export default function StockPanelV2() {
       <label>Quantidade<input name="qtd" type="number" min="0.01" step="0.01" placeholder="0" required/></label><label>Motivo<input name="motivo" placeholder="Motivo operacional" required/></label>
       <button className="primary-button" disabled={busy||(type==='DEVOLUCAO'?(!returnProduct||!destination):(!sourceBalance||!destination))}>{busy?'Processando…':'Confirmar operação e gerar histórico'}</button>
     </form></Modal>
+    <QrCodeDialog target={qrProduct?{kind:'produto',id:qrProduct.id}:null} title={qrProduct?.nome||''} code={qrProduct?.codigo||''} onClose={()=>setQrProduct(null)}/>
   </section>
 }
