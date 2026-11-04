@@ -1,5 +1,5 @@
 import { FormEvent, useMemo, useState } from 'react'
-import { AlertTriangle, BadgeCheck, HardHat, PackageCheck, UserRound } from 'lucide-react'
+import { AlertTriangle, BadgeCheck, HardHat, PackageCheck, UserRound, MessageSquarePlus, Check, X } from 'lucide-react'
 import { AuthUser, request } from '../api'
 import Modal from './Modal'
 import SignatureModal from './SignatureModal'
@@ -14,6 +14,8 @@ type Balance = { id: number; produto: Product; galpao: Warehouse; lote: string; 
 type Epi = { id: number; funcionarioNome: string; funcionarioCpf: string; produtoNome: string; numeroCa: string; quantidade: number; produtoId?: number; saldoEstoqueId?: number; dataPrevisaoTroca?: string; status: string; termoAssinado?: boolean; assinaturaDigital?: string; vencido?: boolean; proximoVencimento?: boolean }
 type Alerts = { vencidos: Epi[]; proximosVencimento: Epi[] }
 type Draft = { funcionarioCpf: string; saldoEstoqueId: string; quantidade: string; dataPrevisaoTroca: string }
+type EpiRequestItem = { id: number; funcionario: Employee; produto: Product; quantidade: number; motivo: string; status: string; solicitadaEm: string; analisadaPorNome?: string; analisadaEm?: string; observacaoDecisao?: string; entrega?: Epi }
+type RequestCatalogItem = Product & { quantidadeDisponivel: number }
 const emptyDraft: Draft = { funcionarioCpf: '', saldoEstoqueId: '', quantidade: '1', dataPrevisaoTroca: '' }
 const today = () => new Date().toISOString().slice(0, 10)
 const formatDate = (value?: string) => value ? new Date(`${value}T00:00:00`).toLocaleDateString('pt-BR') : 'Não informada'
@@ -30,14 +32,22 @@ export default function EpiPanelV2({ user }: { user: AuthUser }) {
   const [draft, setDraft] = useState<Draft>(emptyDraft)
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
+  const [requests, setRequests] = useState<EpiRequestItem[]>([])
+  const [requestCatalog, setRequestCatalog] = useState<RequestCatalogItem[]>([])
+  const [requestOpen, setRequestOpen] = useState(false)
+  const [requestDraft, setRequestDraft] = useState({ produtoId: '', quantidade: '1', motivo: '' })
+  const [reviewRequest, setReviewRequest] = useState<EpiRequestItem | null>(null)
+  const [reviewDraft, setReviewDraft] = useState({ saldoEstoqueId: '', dataPrevisaoTroca: '', observacao: '' })
 
   const load = async () => {
     try {
-      const [d, a] = await Promise.all([request<Epi[]>('/epi'), request<Alerts>('/epi/alerts')])
-      setDeliveries(d); setAlerts(a)
+      const [d, a, r] = await Promise.all([request<Epi[]>('/epi'), request<Alerts>('/epi/alerts'), request<EpiRequestItem[]>('/epi/requests')])
+      setDeliveries(d); setAlerts(a); setRequests(r)
       if (user.role !== 'FUNCIONARIO') {
         const [e, b] = await Promise.all([request<Employee[]>('/employees'), request<Balance[]>('/stock/balances')])
         setEmployees(e); setBalances(b)
+      } else {
+        setRequestCatalog(await request<RequestCatalogItem[]>('/epi/requests/catalog'))
       }
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Não foi possível carregar os dados de EPI.') }
   }
@@ -100,9 +110,44 @@ export default function EpiPanelV2({ user }: { user: AuthUser }) {
   }
 
   const selectedBalance = eligibleBalances.find(balance => String(balance.id) === draft.saldoEstoqueId)
+  const requestProductOptions: SelectOption[] = requestCatalog.map(item => ({ value: String(item.id), label: `${item.codigo} · ${item.nome} · CA ${item.numeroCa}`, description: `${item.quantidadeDisponivel} ${item.unidade || 'UN'} disponíveis` }))
+  const reviewBalances = reviewRequest ? eligibleBalances.filter(item => item.produto.id === reviewRequest.produto.id) : []
+  const reviewBalanceOptions: SelectOption[] = reviewBalances.map(item => ({ value: String(item.id), label: `${item.galpao.nome} · Lote ${item.lote}`, description: `${item.quantidadeDisponivel} ${item.produto.unidade || 'UN'} disponíveis · validade ${formatDate(item.dataValidade)}` }))
+
+  async function submitRequest(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setBusy(true); setMessage('')
+    try {
+      await request('/epi/requests', { method: 'POST', body: JSON.stringify({ produtoId: Number(requestDraft.produtoId), quantidade: Number(requestDraft.quantidade), motivo: requestDraft.motivo }) })
+      setRequestOpen(false); setRequestDraft({ produtoId: '', quantidade: '1', motivo: '' }); setMessage('Solicitação enviada para análise.'); await load()
+    } catch (error) { setMessage(error instanceof Error ? error.message : 'Não foi possível solicitar o EPI.') }
+    finally { setBusy(false) }
+  }
+
+  async function review(action: 'approve' | 'reject') {
+    if (!reviewRequest) return
+    setBusy(true); setMessage('')
+    try {
+      if (action === 'approve') {
+        if (!reviewDraft.saldoEstoqueId || !reviewDraft.dataPrevisaoTroca) throw new Error('Selecione o lote e a previsão de troca.')
+        await request(`/epi/requests/${reviewRequest.id}/approve`, { method: 'POST', body: JSON.stringify({ saldoEstoqueId: Number(reviewDraft.saldoEstoqueId), dataPrevisaoTroca: reviewDraft.dataPrevisaoTroca, observacao: reviewDraft.observacao }) })
+        setMessage('Solicitação aprovada. A entrega foi registrada e o estoque baixado; o funcionário ainda precisa confirmar o recebimento.')
+      } else {
+        if (!reviewDraft.observacao.trim()) throw new Error('Informe o motivo da rejeição.')
+        await request(`/epi/requests/${reviewRequest.id}/reject`, { method: 'POST', body: JSON.stringify({ observacao: reviewDraft.observacao }) })
+        setMessage('Solicitação rejeitada com justificativa registrada.')
+      }
+      setReviewRequest(null); setReviewDraft({ saldoEstoqueId: '', dataPrevisaoTroca: '', observacao: '' }); await load()
+    } catch (error) { setMessage(error instanceof Error ? error.message : 'Não foi possível concluir a análise.') }
+    finally { setBusy(false) }
+  }
+
+  async function cancelRequest(id: number) {
+    try { await request(`/epi/requests/${id}/cancel`, { method: 'POST' }); setMessage('Solicitação cancelada.'); await load() }
+    catch (error) { setMessage(error instanceof Error ? error.message : 'Não foi possível cancelar a solicitação.') }
+  }
 
   return <section className="panel-page">
-    <div className="page-heading"><div><p className="eyebrow">SEGURANÇA DO TRABALHO · ESTOQUE</p><h1>Entrega e validade de EPI</h1><p>{user.role==='FUNCIONARIO'?'Consulte os EPIs vinculados ao seu CPF, prazos de troca e comprovantes de aceite.':'Cada entrega usa um lote cadastrado, baixa o saldo e fica vinculada ao aceite do funcionário.'}</p></div>{user.role!=='FUNCIONARIO'&&<button className="primary-button" onClick={() => start()}><HardHat size={17}/> Registrar entrega</button>}</div>
+    <div className="page-heading"><div><p className="eyebrow">SEGURANÇA DO TRABALHO · ESTOQUE</p><h1>Entrega e validade de EPI</h1><p>{user.role==='FUNCIONARIO'?'Consulte seus EPIs, prazos e comprovantes, ou solicite um item disponível.':'Cada entrega usa um lote cadastrado, baixa o saldo e fica vinculada ao aceite do funcionário.'}</p></div><div className="table-actions">{user.role==='FUNCIONARIO'?<button className="primary-button" onClick={() => setRequestOpen(true)}><MessageSquarePlus size={17}/> Solicitar EPI</button>:<button className="primary-button" onClick={() => start()}><HardHat size={17}/> Registrar entrega</button>}</div></div>
     {message && <p className="feedback" role="status">{message}</p>}
     <ModuleMetrics items={[
       { label: 'Entregas registradas', value: deliveries.length, detail: 'Histórico total', icon: <PackageCheck/>, tone: 'blue' },
@@ -110,6 +155,9 @@ export default function EpiPanelV2({ user }: { user: AuthUser }) {
       { label: 'Troca em até 30 dias', value: alerts.proximosVencimento.length, detail: 'Planejar reposição', icon: <AlertTriangle/>, tone: 'amber' },
       { label: 'Troca vencida', value: alerts.vencidos.length, detail: 'Prioridade de segurança', icon: <BadgeCheck/>, tone: 'red' }
     ]}/>
+    <section className="content-card epi-requests"><div className="section-heading"><div><h2>{user.role === 'FUNCIONARIO' ? 'Minhas solicitações' : 'Solicitações de EPI'}</h2><p>{user.role === 'FUNCIONARIO' ? 'Acompanhe o andamento e a decisão do responsável.' : 'Analise os pedidos. A aprovação cria a entrega e baixa o estoque do lote.'}</p></div><span className="status warning">{requests.filter(item => item.status === 'PENDENTE').length} pendentes</span></div>
+      {requests.length ? <div className="table-card"><table><thead><tr>{user.role !== 'FUNCIONARIO' && <th>Funcionário</th>}<th>EPI solicitado</th><th>Quantidade / motivo</th><th>Solicitada</th><th>Situação</th><th>Resposta / ação</th></tr></thead><tbody>{requests.map(item => <tr key={item.id}>{user.role !== 'FUNCIONARIO' && <td><b>{item.funcionario.nome}</b><small>{item.funcionario.cpf}</small></td>}<td><b>{item.produto.nome}</b><small>CA {item.produto.numeroCa}</small></td><td>{item.quantidade} un.<small>{item.motivo}</small></td><td>{new Date(item.solicitadaEm).toLocaleString('pt-BR')}</td><td><span className={`status ${item.status === 'PENDENTE' ? 'warning' : item.status === 'APROVADA' ? 'ok' : 'danger'}`}>{item.status}</span>{item.analisadaPorNome && <small>Analisada por {item.analisadaPorNome}</small>}</td><td>{item.status === 'PENDENTE' && user.role === 'FUNCIONARIO' && <button className="secondary-button" onClick={() => void cancelRequest(item.id)}>Cancelar</button>}{item.status === 'PENDENTE' && user.role !== 'FUNCIONARIO' && <button className="primary-button" onClick={() => {setReviewRequest(item);setReviewDraft({saldoEstoqueId:'',dataPrevisaoTroca:'',observacao:''})}}>Analisar</button>}{item.status === 'APROVADA' && item.entrega && <small>Entrega #{item.entrega.id} · aguarda aceite do funcionário</small>}{item.observacaoDecisao && <small>{item.observacaoDecisao}</small>}</td></tr>)}</tbody></table></div> : <div className="empty-state">Nenhuma solicitação de EPI.</div>}
+    </section>
     <label className="module-search-label"><span>Buscar entregas</span><input className="module-search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Funcionário, CPF, produto, CA ou situação"/></label>
     <div className="table-card"><table><thead><tr><th>Funcionário</th><th>EPI / CA</th><th>Almoxarifado / lote</th><th>Troca prevista</th><th>Status</th><th>Ações</th></tr></thead><tbody>
       {filtered.map(item => {
@@ -130,6 +178,22 @@ export default function EpiPanelV2({ user }: { user: AuthUser }) {
         <button className="primary-button modal-submit" disabled={busy || !employeeOptions.length || !balanceOptions.length}>{busy ? 'Registrando e baixando estoque…' : 'Confirmar entrega e baixar estoque'}</button>
       </form>
     </Modal>
+    <Modal open={requestOpen} title="Solicitar EPI" onClose={() => { if (!busy) setRequestOpen(false) }}><form className="product-form" onSubmit={submitRequest}>
+      <p className="wide">Escolha um item disponível no estoque. A quantidade será validada novamente quando o responsável analisar o pedido.</p>
+      <label className="wide">EPI disponível<SearchableSelect ariaLabel="EPI disponível" value={requestDraft.produtoId} options={requestProductOptions} onChange={produtoId => setRequestDraft(current => ({...current, produtoId}))} placeholder="Pesquisar código, nome ou CA"/></label>
+      {requestDraft.produtoId && <label>Quantidade<input type="number" min="1" max={requestCatalog.find(p => String(p.id) === requestDraft.produtoId)?.quantidadeDisponivel} step="1" value={requestDraft.quantidade} onChange={event => setRequestDraft(current => ({...current, quantidade:event.target.value}))} required/></label>}
+      <label className="wide">Motivo da solicitação<textarea value={requestDraft.motivo} onChange={event => setRequestDraft(current => ({...current, motivo:event.target.value}))} maxLength={2000} required placeholder="Informe a necessidade de uso ou troca"/></label>
+      {!requestCatalog.length && <p className="form-error wide">Não há EPI elegível disponível. Estoque, lote e CA precisam estar dentro da validade.</p>}
+      <button className="primary-button modal-submit wide" disabled={busy || !requestCatalog.length}>{busy ? 'Enviando…' : 'Enviar para aprovação'}</button>
+    </form></Modal>
+    <Modal open={Boolean(reviewRequest)} title="Analisar solicitação de EPI" onClose={() => {if (!busy) setReviewRequest(null)}}>{reviewRequest && <div className="product-form">
+      <p className="wide"><b>{reviewRequest.funcionario.nome}</b> solicita {reviewRequest.quantidade} × {reviewRequest.produto.nome}.<br/>{reviewRequest.motivo}</p>
+      <label className="wide">Lote elegível<SearchableSelect ariaLabel="Lote elegível" value={reviewDraft.saldoEstoqueId} options={reviewBalanceOptions} onChange={saldoEstoqueId => setReviewDraft(current => ({...current,saldoEstoqueId}))} placeholder="Selecione o lote para a entrega"/></label>
+      {reviewDraft.saldoEstoqueId && <label>Próxima troca<input type="date" min={today()} max={(() => {const b=reviewBalances.find(i=>String(i.id)===reviewDraft.saldoEstoqueId); return b ? [b.dataValidade,b.produto.validadeCa].filter(Boolean).sort()[0] : undefined})()} value={reviewDraft.dataPrevisaoTroca} onChange={event=>setReviewDraft(current=>({...current,dataPrevisaoTroca:event.target.value}))} required/></label>}
+      <label className="wide">Observação da decisão<textarea value={reviewDraft.observacao} onChange={event=>setReviewDraft(current=>({...current,observacao:event.target.value}))} placeholder="Obrigatória se rejeitar; opcional se aprovar"/></label>
+      {!reviewBalanceOptions.length && <p className="form-error wide">O saldo elegível acabou ou o CA/lote venceu. Recarregue o estoque antes de aprovar.</p>}
+      <div className="table-actions wide"><button className="secondary-button" onClick={()=>void review('reject')} disabled={busy}><X size={16}/> Rejeitar</button><button className="primary-button" onClick={()=>void review('approve')} disabled={busy||!reviewBalanceOptions.length}><Check size={16}/> Aprovar e registrar entrega</button></div>
+    </div>}</Modal>
     {sign && <SignatureModal onClose={() => setSign(null)} onConfirm={async signature => { try { await request(`/epi/${sign}/sign`, { method: 'POST', body: JSON.stringify({ assinaturaDigital: signature }) }); setSign(null); setMessage('Assinatura digital registrada.'); await load() } catch (error) { setMessage(error instanceof Error ? error.message : 'Não foi possível confirmar a assinatura.') } }} />}
   </section>
 }

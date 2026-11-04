@@ -165,7 +165,7 @@ export default function App() {
   const allowed = useMemo<View[]>(() => {
     if (!user) return ['home']
     if (user.role === 'FUNCIONARIO') {
-      return ['home', 'epi', 'sync', 'account']
+      return ['home', 'epi', 'account']
     }
     const base: View[] = ['home', 'dashboard', 'receipts', 'stock', 'movements', 'inventory', 'tools', 'epi', 'sync', 'audit']
     if (user.role === 'ADMIN' || user.role === 'CEO' || user.role === 'GLOBAL_ADMIN') {
@@ -200,7 +200,7 @@ export default function App() {
   }
 
   const alertCount = (dashboard?.alerts || []).length
-  const current = view === 'alerts' || allowed.includes(view) ? view : 'home'
+  const current = (view === 'alerts' && user.role !== 'FUNCIONARIO') || allowed.includes(view) ? view : 'home'
 
   const content = qrTarget ? <QrDestinationPage target={qrTarget} onBack={() => go('home')} />
     : current === 'home' ? <HomePage user={user} data={dashboard} onNavigate={go} />
@@ -287,10 +287,9 @@ export default function App() {
           </div>
           <div className="header-actions">
             <span className={`connection-pill ${apiBusy ? 'busy' : ''}`} aria-live="polite"><i />{apiBusy ? 'Sincronizando' : 'Online'}</span>
-            <button className="header-icon" onClick={() => go('alerts')} aria-label={`Abrir central de alertas: ${alertCount} alertas`} title="Central de alertas">
-              <Bell size={20} />
-              {alertCount > 0 && <b>{alertCount}</b>}
-            </button>
+            {user.role !== 'FUNCIONARIO' && <button className="header-icon" onClick={() => go('alerts')} aria-label={`Abrir central de alertas: ${alertCount} alertas`} title="Central de alertas">
+              <Bell size={20} />{alertCount > 0 && <b>{alertCount}</b>}
+            </button>}
             <button className="user-chip" onClick={() => go('account')}>
               <span className="user-avatar">
                 {user.avatar ? <img src={user.avatar} alt="" /> : user.nome.slice(0, 1)}

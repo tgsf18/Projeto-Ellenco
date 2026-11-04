@@ -26,6 +26,7 @@ class DashboardControllerTest {
     @Mock private InventoryCountRepository inventoryCountRepository;
     @Mock private ToolAssetRepository toolAssetRepository;
     @Mock private ToolLoanRepository toolLoanRepository;
+    @Mock private EpiRequestRepository epiRequestRepository;
 
     private DashboardController controller;
 
@@ -39,7 +40,8 @@ class DashboardControllerTest {
                 movementRepository,
                 inventoryCountRepository,
                 toolAssetRepository,
-                toolLoanRepository
+                toolLoanRepository,
+                epiRequestRepository
         );
     }
 
@@ -64,7 +66,7 @@ class DashboardControllerTest {
         when(movementRepository.countDailyMovementsSince(any(LocalDateTime.class))).thenReturn(List.of(p1));
         when(receiptRepository.countDailyReceiptsSince(any(LocalDateTime.class))).thenReturn(List.of());
 
-        Map<String, Object> result = controller.dashboard();
+        Map<String, Object> result = controller.dashboard(null);
 
         assertNotNull(result);
         assertTrue(result.containsKey("summary"));

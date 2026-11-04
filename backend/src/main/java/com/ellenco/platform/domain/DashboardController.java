@@ -1,6 +1,9 @@
 package com.ellenco.platform.domain;
 
+import com.ellenco.platform.auth.Role;
+import com.ellenco.platform.auth.User;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -21,6 +24,7 @@ public class DashboardController {
     private final InventoryCountRepository inventoryCountRepository;
     private final ToolAssetRepository toolAssetRepository;
     private final ToolLoanRepository toolLoanRepository;
+    private final EpiRequestRepository epiRequestRepository;
 
     public DashboardController(ReceiptRepository receiptRepository,
                                ProductRepository productRepository,
@@ -29,7 +33,8 @@ public class DashboardController {
                                MovementRepository movementRepository,
                                InventoryCountRepository inventoryCountRepository,
                                ToolAssetRepository toolAssetRepository,
-                               ToolLoanRepository toolLoanRepository) {
+                               ToolLoanRepository toolLoanRepository,
+                               EpiRequestRepository epiRequestRepository) {
         this.receiptRepository = receiptRepository;
         this.productRepository = productRepository;
         this.epiDeliveryRepository = epiDeliveryRepository;
@@ -38,11 +43,16 @@ public class DashboardController {
         this.inventoryCountRepository = inventoryCountRepository;
         this.toolAssetRepository = toolAssetRepository;
         this.toolLoanRepository = toolLoanRepository;
+        this.epiRequestRepository = epiRequestRepository;
     }
 
     @GetMapping("/dashboard")
     @PreAuthorize("hasAnyRole('GLOBAL_ADMIN','CEO','ADMIN','SUPERVISOR','FUNCIONARIO')")
-    public Map<String, Object> dashboard() {
+    public Map<String, Object> dashboard(@AuthenticationPrincipal User user) {
+        // A conta de funcionário não recebe métricas agregadas da operação da empresa.
+        if (user != null && user.getRole() == Role.FUNCIONARIO) {
+            return Map.of("summary", Map.of(), "alerts", List.of(), "history", List.of());
+        }
         LocalDate today = LocalDate.now();
         LocalDate in30Days = today.plusDays(30);
         LocalDateTime since30Days = today.minusDays(29).atStartOfDay();
@@ -59,6 +69,7 @@ public class DashboardController {
         long inventarios = inventoryCountRepository.count();
         long ferramentas = toolAssetRepository.count();
         long emprestimosAtivos = toolLoanRepository.countByStatus("EMPRESTADO");
+        long solicitacoesEpiPendentes = epiRequestRepository.countByStatus("PENDENTE");
 
         // 2. Alertas prioritários
         List<Map<String, String>> alerts = new ArrayList<>();
@@ -67,6 +78,7 @@ public class DashboardController {
         if (baixoEstoque > 0) alerts.add(alert(baixoEstoque + " item(ns) abaixo do estoque mínimo", "/estoque"));
         if (materiaisVencendo > 0) alerts.add(alert(materiaisVencendo + " lote(s) vencido(s) ou próximos da validade", "/estoque"));
         if (episVencendo > 0) alerts.add(alert(episVencendo + " EPI(s) vencido(s) ou próximos da troca", "/epi"));
+        if (solicitacoesEpiPendentes > 0) alerts.add(alert(solicitacoesEpiPendentes + " solicitação(ões) de EPI aguardando aprovação", "/epi"));
 
         Map<String, Long> summary = new LinkedHashMap<>();
         summary.put("recebimentosPendentes", recebimentos);
@@ -81,6 +93,7 @@ public class DashboardController {
         summary.put("inventarios", inventarios);
         summary.put("ferramentas", ferramentas);
         summary.put("emprestimosAtivos", emprestimosAtivos);
+        summary.put("solicitacoesEpiPendentes", solicitacoesEpiPendentes);
 
         // 3. Histórico dos últimos 30 dias consolidado via agregação no banco (GROUP BY)
         LocalDate startDate = today.minusDays(29);
