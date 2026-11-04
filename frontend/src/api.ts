@@ -39,7 +39,8 @@ function errorMessage(body: unknown): string {
 }
 
 export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const token = localStorage.getItem('ellenco_token');
+  const isAuthenticationRequest = path.startsWith('/auth/');
+  const token = isAuthenticationRequest ? null : localStorage.getItem('ellenco_token');
   const isFormData = options.body instanceof FormData;
 
   const response = await fetch(`${API_URL}${path}`, {
@@ -51,8 +52,11 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
     }
   });
 
-  // Falha real de autenticação (401): limpa sessão e redireciona para login
+  // A falha de login deve aparecer no formulário; não é uma sessão expirada.
   if (response.status === 401) {
+    const body = await response.json().catch(() => null);
+    if (isAuthenticationRequest) throw new Error(errorMessage(body));
+
     localStorage.removeItem('ellenco_token');
     localStorage.removeItem('ellenco_user');
     window.location.reload();
