@@ -84,7 +84,7 @@ class SecurityIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"role\":\"ADMIN\"}"))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.status").value(403));
+                .andExpect(jsonPath("$.error").exists());
     }
 
     @Test
