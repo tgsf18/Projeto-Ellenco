@@ -27,6 +27,7 @@ export default function AccountPanel({ user, onUpdate }: { user: AuthUser; onUpd
   const [profile, setProfile] = useState<Profile>({ nome: user.nome, email: user.email, role: user.role })
   const [message, setMessage] = useState('')
   const [saving, setSaving] = useState(false)
+  const [avatarFailed, setAvatarFailed] = useState(false)
 
   useEffect(() => {
     request<Profile>('/users/me')
@@ -34,12 +35,20 @@ export default function AccountPanel({ user, onUpdate }: { user: AuthUser; onUpd
       .catch(() => setMessage('Seus dados locais foram carregados. Algumas informações podem estar indisponíveis no momento.'))
   }, [])
 
+  useEffect(() => { setAvatarFailed(false) }, [profile.avatar])
+
   function photo(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
     if (!file) return
-    if (!file.type.startsWith('image/')) return setMessage('Escolha um arquivo de imagem válido (PNG ou JPG).')
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) return setMessage('Escolha uma imagem PNG, JPG ou WebP.')
+    if (file.size > 2 * 1024 * 1024) return setMessage('A imagem deve ter até 2 MB para carregar com rapidez no perfil.')
     const reader = new FileReader()
-    reader.onload = () => setProfile(value => ({ ...value, avatar: String(reader.result || '') }))
+    reader.onload = () => {
+      setAvatarFailed(false)
+      setProfile(value => ({ ...value, avatar: String(reader.result || '') }))
+      setMessage('Prévia atualizada. Salve as alterações para confirmar a nova foto.')
+    }
+    reader.onerror = () => setMessage('Não foi possível abrir essa imagem. Escolha outro arquivo.')
     reader.readAsDataURL(file)
   }
 
@@ -91,7 +100,7 @@ export default function AccountPanel({ user, onUpdate }: { user: AuthUser; onUpd
 
       <div className="account-summary">
         <div className="avatar-large">
-          {profile.avatar ? <img src={profile.avatar} alt="Foto do usuário" /> : initials}
+          {profile.avatar && !avatarFailed ? <img src={profile.avatar} alt="Foto do usuário" onError={() => setAvatarFailed(true)} /> : initials}
         </div>
         <div>
           <span className="account-status">
@@ -108,11 +117,18 @@ export default function AccountPanel({ user, onUpdate }: { user: AuthUser; onUpd
 
       <div className="account-card">
         <form className="account-form" onSubmit={save}>
-          <label className="photo-field">
-            Foto do perfil
-            <span>JPG ou PNG</span>
-            <input type="file" accept="image/*" onChange={photo} />
-          </label>
+          <div className="photo-field">
+            <div className="photo-edit-preview">
+              <div className="avatar-edit-preview">
+                {profile.avatar && !avatarFailed ? <img src={profile.avatar} alt={`Prévia da foto de ${profile.nome}`} onError={() => setAvatarFailed(true)} /> : initials}
+              </div>
+              <div className="photo-edit-copy"><strong>Foto do perfil</strong><span>A prévia aparece aqui e no cabeçalho após salvar.</span><small>PNG, JPG ou WebP · até 2 MB</small></div>
+            </div>
+            <div className="photo-edit-actions">
+              <label className="photo-upload-button">Escolher imagem<input type="file" accept="image/png,image/jpeg,image/webp" onChange={photo} /></label>
+              {profile.avatar && <button type="button" className="photo-remove-button" onClick={() => { setProfile(value => ({ ...value, avatar: '' })); setAvatarFailed(false); setMessage('A foto será removida do perfil quando você salvar.') }}>Remover foto</button>}
+            </div>
+          </div>
           <label>
             Nome completo
             <input

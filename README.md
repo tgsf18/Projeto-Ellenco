@@ -1,5 +1,7 @@
 # ELLENCO — Plataforma Operacional
 
+**Guia de uso e processos ponta a ponta:** consulte [GUIA_OPERACIONAL_ELLENCO.md](GUIA_OPERACIONAL_ELLENCO.md) para conhecer os módulos, perfis, processos e limites atuais da plataforma.
+
 Este projeto foi estruturado como uma base real para a evolução da plataforma operacional da ELLENCO, preservando o diagnóstico do projeto original e criando uma arquitetura profissional para autenticação, autorização, estoque e operação.
 
 ## Estrutura
