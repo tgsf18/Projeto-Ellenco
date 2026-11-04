@@ -35,7 +35,6 @@ public class User {
     private String telefone;
     private String obra;
     private String matricula;
-    @Lob
     @Column(columnDefinition = "TEXT")
     private String avatar;
     private boolean ativo = true;

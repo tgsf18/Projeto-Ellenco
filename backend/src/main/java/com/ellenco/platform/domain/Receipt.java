@@ -42,7 +42,6 @@ public class Receipt {
     @Column(length = 2000)
     private String observacoes;
 
-    @Lob
     @Column(columnDefinition = "TEXT")
     private String fotoComprovanteUrl;
 

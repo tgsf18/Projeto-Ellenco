@@ -55,7 +55,6 @@ public class EpiDelivery {
 
     private boolean termoAssinado = false;
 
-    @Lob
     @Column(columnDefinition = "TEXT")
     private String assinaturaDigital;
 
