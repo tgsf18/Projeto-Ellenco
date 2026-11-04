@@ -113,13 +113,16 @@ npm run build:static
 
 O comando compila TypeScript/React e substitui os arquivos publicados no diretório estático do backend. Faça commit dos arquivos de `frontend/src` e de `backend/src/main/resources/static` para que o deploy do backend carregue a nova interface.
 
-No serviço Web do Render, use o diretório `backend`, Java 17 e:
+No serviço Web do Render, escolha o runtime **Docker**. O Render não oferece runtime nativo para Java; o Dockerfile do projeto compila a API e inclui o frontend já copiado para `backend/src/main/resources/static` no mesmo JAR. Configure:
 
 ```text
-Build command: mvn -B clean package
-Start command: java -Dspring.profiles.active=render -jar target/ellenco-platform-0.0.1-SNAPSHOT.jar
+Branch: codex/production-readiness-2026-11 (ou a branch de produção que o serviço acompanha)
+Dockerfile Path: backend/Dockerfile
+Docker Context Directory: backend
 Health check path: /actuator/health
 ```
+
+O Dockerfile define a compilação e o comando de inicialização; não preencha Build Command ou Start Command no modo Docker. O serviço deve acompanhar a mesma branch que recebe os commits para publicar as alterações.
 
 Configure as variáveis no Render, nunca no GitHub:
 
