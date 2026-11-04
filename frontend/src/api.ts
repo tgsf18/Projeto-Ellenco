@@ -1,4 +1,20 @@
 const API_URL = '/api';
+const GET_CACHE_MS = 5_000;
+const getCache = new Map<string, { expiresAt: number; value: unknown }>();
+const pendingGets = new Map<string, Promise<unknown>>();
+let cacheGeneration = 0;
+let activeApiRequests = 0;
+
+export function clearRequestCache(): void {
+  cacheGeneration += 1;
+  getCache.clear();
+  pendingGets.clear();
+}
+
+function reportApiActivity(delta: number): void {
+  activeApiRequests = Math.max(0, activeApiRequests + delta);
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('ellenco:api-activity', { detail: { active: activeApiRequests > 0 } }));
+}
 
 export type UserRole = 'GLOBAL_ADMIN' | 'CEO' | 'ADMIN' | 'SUPERVISOR' | 'FUNCIONARIO';
 
@@ -11,9 +27,18 @@ export type AuthUser = {
   avatar?: string;
 };
 
-function announceSuccessfulMutation(method: string): void {
+function announceSuccessfulMutation(path: string, method: string): void {
   if (typeof window === 'undefined') return;
-  const message = method === 'DELETE' ? 'Registro removido.' : method === 'PATCH' ? 'Alterações salvas.' : 'Operação concluída.';
+  clearRequestCache();
+  const message = path.startsWith('/inventory/operations')
+    ? 'Movimentação registrada. Saldos e histórico atualizados.'
+    : path.startsWith('/epi')
+      ? 'Operação de EPI concluída. Entregas e alertas atualizados.'
+      : path.startsWith('/stock') || path.startsWith('/receipts')
+        ? 'Operação concluída. Estoque e recebimentos atualizados.'
+        : method === 'DELETE' ? 'Registro removido. As informações foram atualizadas.'
+          : method === 'PATCH' || method === 'PUT' ? 'Alterações salvas e informações atualizadas.'
+            : 'Operação concluída. As informações foram atualizadas.';
   window.dispatchEvent(new CustomEvent('ellenco:toast', { detail: { type: 'success', message } }));
   window.dispatchEvent(new CustomEvent('ellenco:data-changed'));
 }
@@ -39,6 +64,32 @@ function errorMessage(body: unknown): string {
 }
 
 export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const method = (options.method || 'GET').toUpperCase();
+  if (method === 'GET') {
+    const cached = getCache.get(path);
+    if (cached && cached.expiresAt > Date.now()) return cached.value as T;
+    const pending = pendingGets.get(path);
+    if (pending) return pending as Promise<T>;
+  }
+
+  const generation = cacheGeneration;
+  reportApiActivity(1);
+  const pending = performRequest<T>(path, options).then(result => {
+    if (method === 'GET') {
+      if (generation === cacheGeneration) getCache.set(path, { value: result, expiresAt: Date.now() + GET_CACHE_MS });
+    } else announceSuccessfulMutation(path, method);
+    return result;
+  }).finally(() => reportApiActivity(-1));
+
+  if (method === 'GET') {
+    pendingGets.set(path, pending);
+    try { return await pending; }
+    finally { if (pendingGets.get(path) === pending) pendingGets.delete(path); }
+  }
+  return pending;
+}
+
+async function performRequest<T>(path: string, options: RequestInit): Promise<T> {
   const isAuthenticationRequest = path.startsWith('/auth/');
   const token = isAuthenticationRequest ? null : localStorage.getItem('ellenco_token');
   const isFormData = options.body instanceof FormData;
@@ -79,8 +130,5 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
   }
 
   const result = response.status === 204 ? undefined as T : await response.json() as T;
-  if ((options.method || 'GET').toUpperCase() !== 'GET') {
-    announceSuccessfulMutation((options.method || '').toUpperCase());
-  }
   return result;
 }

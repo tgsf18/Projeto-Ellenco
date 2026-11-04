@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { ClipboardCheck, ClipboardList, PackageSearch, Send } from 'lucide-react'
 import { AuthUser, request } from '../api'
 import CameraScanner from './CameraScanner'
 import Modal from './Modal'
 import ModuleMetrics from './ModuleMetrics'
 import SearchableSelect from './SearchableSelect'
+import { useModuleRefresh } from '../useModuleRefresh'
 
 type Warehouse={id:number;nome:string;obra?:{nome:string}}
 type Item={id:number;saldo:{produto:{nome:string;codigo:string;unidade:string};lote:string;localizacaoPrateleira:string};saldoSistema:number;quantidadeContada?:number;divergencia?:number;motivo?:string;contado:boolean}
@@ -15,7 +16,7 @@ export default function InventoryPanel({user}:{user:AuthUser}) {
   const [warehouses,setWarehouses]=useState<Warehouse[]>([]),[counts,setCounts]=useState<Count[]>([]),[active,setActive]=useState<Count|null>(null)
   const [startOpen,setStartOpen]=useState(false),[warehouseId,setWarehouseId]=useState(''),[message,setMessage]=useState(''),[scan,setScan]=useState(false)
   const load=async()=>{const [w,c]=await Promise.all([request<Warehouse[]>('/warehouses'),request<Count[]>('/inventory/counts')]);setWarehouses(w);setCounts(c);if(active)setActive(c.find(x=>x.id===active.id)||null)}
-  useEffect(()=>{void load().catch(error=>setMessage(error.message))},[])
+  useModuleRefresh(load)
   async function start(event:React.FormEvent){event.preventDefault();try{const c=await request<Count>('/inventory/counts',{method:'POST',body:JSON.stringify({galpaoId:Number(warehouseId),contagemCega:true})});setActive(c);setStartOpen(false);setWarehouseId('');await load()}catch(error){setMessage(error instanceof Error?error.message:'Não foi possível iniciar o inventário.')}}
   async function save(item:Item,q:string,reason:string){try{await request(`/inventory/counts/${active!.id}/items/${item.id}`,{method:'PATCH',body:JSON.stringify({quantidadeContada:Number(q),motivo:reason})});await load()}catch(error){setMessage(error instanceof Error?error.message:'Não foi possível salvar a contagem.')}}
   async function action(path:string){try{await request(`/inventory/counts/${active!.id}/${path}`,{method:'POST'});setMessage(path==='approve'?'Inventário aprovado e saldos ajustados.':'Inventário enviado para aprovação.');setActive(null);await load()}catch(error){setMessage(error instanceof Error?error.message:'Não foi possível atualizar o inventário.')}}

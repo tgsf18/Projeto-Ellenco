@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { BarChart3, Bell, Boxes, ChevronLeft, ChevronRight, ClipboardList, HardHat, Home, LogOut, Menu, Moon, Package, QrCode, RefreshCw, Settings, Sun, UserRound, Wrench, X } from 'lucide-react'
-import { AuthUser, isTokenValid, request } from './api'
+import { AuthUser, clearRequestCache, isTokenValid, request } from './api'
 import Login from './pages/Login'
 import LoadingScreen from './components/LoadingScreen'
 import StockPanel from './components/StockPanelV2'
@@ -18,10 +18,11 @@ import SyncPanel from './components/SyncPanel'
 import ToastHost from './components/ToastHost'
 import QrDestinationPage from './components/QrDestinationPage'
 import QrCodeAdminPanel from './components/QrCodeAdminPanel'
+import AlertsCenter from './components/AlertsCenter'
 import { QrTarget, qrTargetFromCurrentUrl } from './utils/qrDestination'
 import './product-qr.css'
 
-type View = 'home' | 'dashboard' | 'receipts' | 'stock' | 'movements' | 'inventory' | 'tools' | 'epi' | 'sync' | 'employees' | 'audit' | 'reports' | 'management' | 'qr-codes' | 'account'
+type View = 'home' | 'dashboard' | 'receipts' | 'stock' | 'movements' | 'inventory' | 'tools' | 'epi' | 'sync' | 'employees' | 'audit' | 'reports' | 'management' | 'qr-codes' | 'account' | 'alerts'
 type Theme = 'light' | 'dark'
 
 const labels: Record<View, string> = {
@@ -39,7 +40,8 @@ const labels: Record<View, string> = {
   reports: 'Relatórios',
   management: 'Gerenciamento',
   'qr-codes': 'Etiquetas QR',
-  account: 'Minha conta'
+  account: 'Minha conta',
+  alerts: 'Central de alertas'
 }
 
 const icons: Record<View, any> = {
@@ -57,7 +59,8 @@ const icons: Record<View, any> = {
   reports: BarChart3,
   management: Settings,
   'qr-codes': QrCode,
-  account: UserRound
+  account: UserRound,
+  alerts: Bell
 }
 
 const roleFriendlyName: Record<string, string> = {
@@ -70,6 +73,7 @@ const roleFriendlyName: Record<string, string> = {
 
 export default function App() {
   const [booting, setBooting] = useState(true)
+  const [apiBusy, setApiBusy] = useState(false)
   const [mobileMenu, setMobileMenu] = useState(false)
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('ellenco_sidebar') === 'collapsed')
   const [theme, setTheme] = useState<Theme>(() => localStorage.getItem('ellenco_theme') === 'dark' ? 'dark' : 'light')
@@ -103,6 +107,12 @@ export default function App() {
     localStorage.setItem('ellenco_sidebar', collapsed ? 'collapsed' : 'expanded')
   }, [collapsed])
 
+  useEffect(() => {
+    const onActivity = (event: Event) => setApiBusy(Boolean((event as CustomEvent<{ active?: boolean }>).detail?.active))
+    window.addEventListener('ellenco:api-activity', onActivity)
+    return () => window.removeEventListener('ellenco:api-activity', onActivity)
+  }, [])
+
   const refreshDashboard = (force = false) => {
     if (!user || (!force && Date.now() - dashboardFetchedAt.current < 15000)) return dashboardInFlight.current
     if (dashboardInFlight.current) return dashboardInFlight.current
@@ -115,28 +125,27 @@ export default function App() {
         const key = `${alert.route}:${alert.title}`
         if (announcedAlerts.current.has(key)) return
         announcedAlerts.current.add(key)
-        const view = alert.route.includes('estoque') ? 'stock' : alert.route.includes('receb') ? 'receipts' : 'epi'
-        window.dispatchEvent(new CustomEvent('ellenco:toast', { detail: { type: 'warning', message: alert.title, action: 'Abrir', view } }))
+        window.dispatchEvent(new CustomEvent('ellenco:toast', { detail: { type: 'warning', message: alert.title, action: 'Ver alertas', view: 'alerts' } }))
       })
       announcedAlerts.current = activeAlertKeys
     }).catch(() => undefined).finally(() => {
       dashboardInFlight.current = null
       if (dashboardRefreshQueued.current) {
         dashboardRefreshQueued.current = false
-        if (user && (view === 'dashboard' || view === 'home')) void refreshDashboard(true)
+        if (user && (view === 'dashboard' || view === 'home' || view === 'alerts')) void refreshDashboard(true)
       }
     })
     return dashboardInFlight.current
   }
 
   useEffect(() => {
-    if (user && (view === 'dashboard' || view === 'home')) void refreshDashboard()
+    if (user && (view === 'dashboard' || view === 'home' || view === 'alerts')) void refreshDashboard()
   }, [user, view])
 
   useEffect(() => {
     const onDataChanged = () => {
       dashboardFetchedAt.current = 0
-      if (user && (view === 'dashboard' || view === 'home')) {
+      if (user && (view === 'dashboard' || view === 'home' || view === 'alerts')) {
         if (dashboardInFlight.current) dashboardRefreshQueued.current = true
         else void refreshDashboard(true)
       }
@@ -183,6 +192,7 @@ export default function App() {
 
   const logout = () => {
     localStorage.clear()
+    clearRequestCache()
     setDashboard(null)
     dashboardFetchedAt.current = 0
     announcedAlerts.current.clear()
@@ -190,11 +200,12 @@ export default function App() {
   }
 
   const alertCount = (dashboard?.alerts || []).length
-  const current = allowed.includes(view) ? view : 'home'
+  const current = view === 'alerts' || allowed.includes(view) ? view : 'home'
 
   const content = qrTarget ? <QrDestinationPage target={qrTarget} onBack={() => go('home')} />
     : current === 'home' ? <HomePage user={user} data={dashboard} onNavigate={go} />
     : current === 'dashboard' ? <Dashboard data={dashboard} onNavigate={go} />
+    : current === 'alerts' ? <AlertsCenter data={dashboard} onNavigate={go} />
     : current === 'account' ? <AccountPanel user={user} onUpdate={setUser} />
     : current === 'stock' ? <StockPanel />
     : current === 'movements' ? <MovementsPanel user={user} />
@@ -219,19 +230,25 @@ export default function App() {
         )}
       </div>
       <nav className="sidebar-nav" aria-label="Navegação principal">
-        {allowed.map(item => {
-          const Icon = icons[item]
-          return (
-            <button
-              key={item}
-              className={current === item ? 'active' : ''}
-              onClick={() => go(item)}
-              title={collapsed && !mobile ? labels[item] : undefined}
-            >
-              <Icon size={20} />
-              <span>{labels[item]}</span>
-            </button>
-          )
+        {[
+          { title: 'VISÃO GERAL', items: ['home', 'dashboard'] as View[] },
+          { title: 'OPERAÇÃO', items: ['receipts', 'stock', 'movements', 'inventory', 'tools', 'epi'] as View[] },
+          { title: 'CONTROLE', items: ['sync', 'audit'] as View[] },
+          { title: 'ADMINISTRAÇÃO', items: ['employees', 'reports', 'management', 'qr-codes'] as View[] },
+          { title: 'CONTA', items: ['account'] as View[] }
+        ].map(group => {
+          const items = group.items.filter(item => allowed.includes(item))
+          if (!items.length) return null
+          return <div className="sidebar-group" key={group.title}>
+            {(!collapsed || mobile) && <span className="sidebar-group-title">{group.title}</span>}
+            {items.map(item => {
+              const Icon = icons[item]
+              return <button key={item} className={current === item ? 'active' : ''} onClick={() => go(item)} title={collapsed && !mobile ? labels[item] : undefined} aria-current={current === item ? 'page' : undefined}>
+                <Icon size={19} strokeWidth={current === item ? 2.4 : 1.9} />
+                <span>{labels[item]}</span>
+              </button>
+            })}
+          </div>
         })}
       </nav>
       <div className="sidebar-footer">
@@ -266,12 +283,11 @@ export default function App() {
             <Menu />
           </button>
           <div>
-            <span className="header-context">ELLENCO · Operação Integrada</span>
-            <strong>{qrTarget ? 'Registro via QR Code' : labels[current]}</strong>
+            <span className="header-context">ELLENCO · PLATAFORMA OPERACIONAL</span>
           </div>
           <div className="header-actions">
-            <span className="connection-pill"><i /> Online</span>
-            <button className="header-icon" onClick={() => go('dashboard')} aria-label={`${alertCount} alertas`}>
+            <span className={`connection-pill ${apiBusy ? 'busy' : ''}`} aria-live="polite"><i />{apiBusy ? 'Sincronizando' : 'Online'}</span>
+            <button className="header-icon" onClick={() => go('alerts')} aria-label={`Abrir central de alertas: ${alertCount} alertas`} title="Central de alertas">
               <Bell size={20} />
               {alertCount > 0 && <b>{alertCount}</b>}
             </button>
@@ -286,7 +302,7 @@ export default function App() {
             </button>
           </div>
         </header>
-        <main className="application-main">{content}</main>
+        <main key={current} className="application-main page-transition">{content}</main>
         <footer className="application-footer">
           © {new Date().getFullYear()} ELLENCO S/A · Plataforma Operacional
         </footer>

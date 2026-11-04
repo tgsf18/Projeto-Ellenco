@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { FormEvent, useMemo, useState } from 'react'
 import { AlertTriangle, Boxes, CalendarClock, ClipboardList, QrCode, Wrench } from 'lucide-react'
 import { request } from '../api'
 import Modal from './Modal'
@@ -7,6 +7,7 @@ import SearchableSelect from './SearchableSelect'
 import ModuleMetrics from './ModuleMetrics'
 import QrCodeDialog from './QrCodeDialog'
 import { parseQrTarget } from '../utils/qrDestination'
+import { useModuleRefresh } from '../useModuleRefresh'
 
 type Site={id:number;codigo?:string;nome:string}
 type Warehouse={id:number;nome:string;obra?:Site}
@@ -22,7 +23,7 @@ export default function ToolsPanel(){
  const[qrTool,setQrTool]=useState<Tool|null>(null)
  const[employeeCpf,setEmployeeCpf]=useState(''),[siteId,setSiteId]=useState(''),[warehouseId,setWarehouseId]=useState('')
  const load=async()=>{const[t,l,e,s,w]=await Promise.all([request<Tool[]>('/tools'),request<Loan[]>('/tools/loans'),request<Employee[]>('/employees'),request<Site[]>('/construction-sites'),request<Warehouse[]>('/warehouses')]);setTools(t);setLoans(l);setEmployees(e);setSites(s);setWarehouses(w)}
- useEffect(()=>{void load().catch(error=>setMessage(error.message))},[])
+ useModuleRefresh(load)
  const found=useMemo(()=>tools.filter(tool=>[tool.patrimonio,tool.nome,tool.marca,tool.modelo,tool.categoria].some(value=>value?.toLocaleLowerCase('pt-BR').includes(search.toLocaleLowerCase('pt-BR')))),[tools,search])
  const people=employees.filter(employee=>(employee.status||'ATIVO').toUpperCase()==='ATIVO').map(employee=>({value:employee.cpf,label:employee.nome,description:[employee.funcao,employee.matricula&&`Matrícula ${employee.matricula}`,employee.cpf,employee.obra?.nome].filter(Boolean).join(' · ')}))
  const siteOptions=sites.map(site=>({value:String(site.id),label:site.nome,description:site.codigo||''}))

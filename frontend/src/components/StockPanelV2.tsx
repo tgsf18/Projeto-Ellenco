@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { FormEvent, useMemo, useState } from 'react'
 import { AlertTriangle, Boxes, CalendarClock, Package, PackageCheck, QrCode } from 'lucide-react'
 import { request } from '../api'
 import Modal from './Modal'
@@ -7,6 +7,7 @@ import SearchableSelect from './SearchableSelect'
 import ModuleMetrics from './ModuleMetrics'
 import QrCodeDialog from './QrCodeDialog'
 import { parseQrTarget } from '../utils/qrDestination'
+import { useModuleRefresh } from '../useModuleRefresh'
 
 type Site = { id: number; nome: string }
 type Warehouse = { id: number; nome: string; obra?: Site }
@@ -27,7 +28,7 @@ export default function StockPanelV2() {
     try { const [p,b,w,a] = await Promise.all([request<Product[]>('/stock/products'),request<Balance[]>('/stock/balances'),request<Warehouse[]>('/warehouses'),request<Alerts>('/stock/balances/alerts')]); setProducts(p);setBalances(b);setWarehouses(w);setAlerts(a) }
     catch (error) { setMessage(error instanceof Error ? error.message : 'Não foi possível carregar o estoque.') }
   }
-  useEffect(() => { void load() }, [])
+  useModuleRefresh(load)
   const sites = useMemo(() => Array.from(new Map(warehouses.filter(w=>w.obra).map(w=>[w.obra!.id,w.obra!])).values()), [warehouses])
   const options = useMemo(() => products.filter(p => (!site || String(p.galpao?.obra?.id)===site) && [p.nome,p.codigo,p.galpao?.nome,p.galpao?.obra?.nome,p.lote].some(v=>v?.toLowerCase().includes(search.toLowerCase()))),[products,search,site])
   const eligibleSources = balances.filter(b => Number(b.quantidadeDisponivel)>0 && (!b.dataValidade || b.dataValidade>=new Date().toISOString().slice(0,10)) && b.status!=='BLOQUEADO')

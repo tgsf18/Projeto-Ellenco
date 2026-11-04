@@ -1,10 +1,11 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { FormEvent, useMemo, useState } from 'react'
 import { AlertTriangle, BadgeCheck, HardHat, PackageCheck, UserRound } from 'lucide-react'
 import { AuthUser, request } from '../api'
 import Modal from './Modal'
 import SignatureModal from './SignatureModal'
 import SearchableSelect, { SelectOption } from './SearchableSelect'
 import ModuleMetrics from './ModuleMetrics'
+import { useModuleRefresh } from '../useModuleRefresh'
 
 type Employee = { id: number; nome: string; cpf: string; matricula?: string; funcao?: string; status?: string; obra?: { nome?: string } }
 type Product = { id: number; codigo: string; nome: string; unidade?: string; numeroCa?: string; validadeCa?: string; epi?: boolean; isEpi?: boolean }
@@ -40,7 +41,7 @@ export default function EpiPanelV2({ user }: { user: AuthUser }) {
       }
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Não foi possível carregar os dados de EPI.') }
   }
-  useEffect(() => { void load() }, [])
+  useModuleRefresh(load)
 
   const eligibleBalances = useMemo(() => balances.filter(balance => {
     const product = balance.produto

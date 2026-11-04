@@ -1,9 +1,10 @@
-import { FormEvent, useEffect, useState } from 'react'
+import { FormEvent, useState } from 'react'
 import { request } from '../api'
 import Modal from './Modal'
 import CameraScanner from './CameraScanner'
 import SearchableSelect from './SearchableSelect'
 import ModuleMetrics from './ModuleMetrics'
+import { useModuleRefresh } from '../useModuleRefresh'
 import { ClipboardCheck, FileClock, PackageCheck, Truck } from 'lucide-react'
 
 type Product = { id: number; codigo: string; nome: string; unidade?: string; numeroCa?: string; epi?: boolean; isEpi?: boolean }
@@ -41,7 +42,7 @@ export default function ReceiptPanel() {
       setSuppliers(Array.isArray(allSuppliers) ? allSuppliers.filter(s=>s.status==='ATIVO') : [])
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Não foi possível carregar os dados.') }
   }
-  useEffect(() => { void load() }, [])
+  useModuleRefresh(load)
   function filterReceipts(value: string) { const query = value.toLowerCase(); setSearch(value); setReceipts(allReceipts.filter(receipt => [receipt.numeroNota, receipt.fornecedor, receipt.galpaoDestinoNome, ...(receipt.itens || []).flatMap(item => [item.produtoNome, item.produtoCodigo])].some(field => field?.toLowerCase().includes(query)))) }
 
   function addLine() {

@@ -1,9 +1,10 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { FormEvent, useMemo, useState } from 'react'
 import { Activity, ArrowDownToLine, ArrowLeftRight, Ban, Boxes, PackageCheck, RotateCcw, ScanLine, Undo2 } from 'lucide-react'
 import { AuthUser, request } from '../api'
 import Modal from './Modal'
 import SearchableSelect from './SearchableSelect'
 import ModuleMetrics from './ModuleMetrics'
+import { useModuleRefresh } from '../useModuleRefresh'
 
 type Site={id:number;nome:string;codigo?:string}
 type Warehouse={id:number;nome:string;obra?:Site}
@@ -20,7 +21,7 @@ export default function MovementsPanel({user}:{user:AuthUser}){
  const[type,setType]=useState('SAIDA'),[open,setOpen]=useState(false),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[search,setSearch]=useState(''),[filter,setFilter]=useState('')
  const[sourceBalanceId,setSourceBalanceId]=useState(''),[returnProductId,setReturnProductId]=useState(''),[targetWarehouseId,setTargetWarehouseId]=useState(''),[targetSiteId,setTargetSiteId]=useState('')
  const load=async()=>{try{const[b,w,s,m]=await Promise.all([request<Balance[]>('/stock/balances'),request<Warehouse[]>('/warehouses'),request<Site[]>('/construction-sites'),request<Movement[]>('/inventory/operations')]);setBalances(b);setWarehouses(w);setSites(s);setMovements(m)}catch(error){setMessage(error instanceof Error?error.message:'Não foi possível carregar as movimentações.')}}
- useEffect(()=>{void load()},[])
+ useModuleRefresh(load)
  const rows=useMemo(()=>movements.filter(m=>(!filter||m.tipo===filter)&&[m.produtoNome,m.produtoCodigo,m.comprovanteCodigo,m.responsavel,m.lote,m.eap,m.frenteServico].some(v=>v?.toLowerCase().includes(search.toLowerCase()))),[movements,search,filter])
  const originRequired=type!=='DEVOLUCAO', warehouseDestinationRequired=['TRANSFERENCIA','DEVOLUCAO'].includes(type), worksiteRequired=type==='SAIDA'
  async function submit(event:FormEvent<HTMLFormElement>){event.preventDefault();setBusy(true);setMessage('');const f=new FormData(event.currentTarget);const balance=balances.find(item=>String(item.id)===sourceBalanceId);try{

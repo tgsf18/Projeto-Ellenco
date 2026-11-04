@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { CheckCircle2, TriangleAlert, X } from 'lucide-react'
+import { CheckCircle2, CircleX, TriangleAlert, X } from 'lucide-react'
 import './toast-host.css'
 
 type ToastItem = { id: number; type: 'success' | 'warning' | 'error'; message: string; action?: string; view?: string }
@@ -31,8 +31,8 @@ export default function ToastHost() {
   }
 
   return <div className="toast-host" aria-live="polite" aria-relevant="additions">
-    {items.map(item => <article className={`app-toast app-toast-${item.type}`} key={item.id} role="status">
-      {item.type === 'success' ? <CheckCircle2 size={18} /> : <TriangleAlert size={18} />}
+    {items.map(item => <article className={`app-toast app-toast-${item.type}`} key={item.id} role={item.type === 'error' ? 'alert' : 'status'}>
+      {item.type === 'success' ? <CheckCircle2 size={19} /> : item.type === 'error' ? <CircleX size={19} /> : <TriangleAlert size={19} />}
       <div className="app-toast-copy"><strong>{item.type === 'success' ? 'Concluído' : item.type === 'warning' ? 'Atenção' : 'Erro'}</strong><span>{item.message}</span></div>
       {item.action && <button className="app-toast-action" onClick={() => open(item)}>{item.action}</button>}
       <button className="app-toast-close" onClick={() => setItems(current => current.filter(entry => entry.id !== item.id))} aria-label="Fechar aviso"><X size={16} /></button>
