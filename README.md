@@ -147,6 +147,10 @@ Para Render + Supabase, use a connection string do **pooler em modo Session** fo
 
 Não tente criar o primeiro administrador pelo cadastro público. Se o e-mail informado no bootstrap já existir com um perfil diferente, a aplicação interrompe a inicialização para evitar promover uma conta por engano. Nunca envie a senha pelo GitHub ou por mensagens públicas.
 
+### Redefinir a senha de um administrador existente
+
+Se o administrador já existe no banco e não consegue entrar, o bootstrap pode trocar a senha somente da conta `ADMIN` cujo e-mail corresponder exatamente ao configurado. No Render, defina `ELLENCO_BOOTSTRAP_ENABLED=true`, `ELLENCO_BOOTSTRAP_RESET_EXISTING_ADMIN=true`, `ELLENCO_BOOTSTRAP_ADMIN_EMAIL` com o e-mail dessa conta e `ELLENCO_BOOTSTRAP_ADMIN_PASSWORD` com uma nova senha forte de pelo menos 12 caracteres. Salve e aguarde o deploy ficar `Live`; então entre com essa nova senha. Após confirmar o acesso, desligue as duas flags e remova a variável de senha. Essa redefinição não altera o perfil nem reativa uma conta desativada.
+
 Os relatórios mostram tabelas filtráveis por intervalo; **Exportar Excel (CSV)** gera arquivo que o Excel abre, e **Imprimir / PDF** usa a impressão do navegador. Campos `date` e `datetime-local` abrem o seletor de calendário nativo do dispositivo.
 
 O Render fornece um endereço HTTPS `onrender.com` para acesso imediato. Um domínio próprio exige que o domínio esteja registrado e que os registros DNS correspondentes sejam configurados no Render e no provedor do domínio.

@@ -25,12 +25,13 @@ public class InitialDataConfig {
     @ConditionalOnProperty(name = "ellenco.bootstrap.enabled", havingValue = "true", matchIfMissing = false)
     CommandLineRunner initialData(UserRepository users, CategoryRepository categories, ProductRepository products, ConstructionSiteRepository sites, WarehouseRepository warehouses, PasswordEncoder encoder,
                                   @Value("${ellenco.bootstrap.admin-email:}") String adminEmail,
-                                  @Value("${ellenco.bootstrap.admin-password:}") String adminPassword) {
+                                  @Value("${ellenco.bootstrap.admin-password:}") String adminPassword,
+                                  @Value("${ellenco.bootstrap.reset-existing-admin:false}") boolean resetExistingAdminPassword) {
         return args -> {
             if (adminEmail.isBlank() || adminPassword.length() < 12) {
                 throw new IllegalStateException("Bootstrap requer ellenco.bootstrap.admin-email e senha com pelo menos 12 caracteres.");
             }
-            createUser(users, encoder, "Administrador", adminEmail.trim().toLowerCase(), Role.ADMIN, adminPassword, "10000010081");
+            createUser(users, encoder, "Administrador", adminEmail.trim().toLowerCase(), Role.ADMIN, adminPassword, "10000010081", resetExistingAdminPassword);
             if (sites.count() == 0) {
                 ConstructionSite site = new ConstructionSite(); site.setCodigo("OBRA-001"); site.setNome("Obra Piloto"); site.setResponsavel("Supervisor operacional"); site.setStatus("ATIVA"); sites.save(site);
                 Warehouse warehouse = new Warehouse(); warehouse.setCodigo("GALPAO-001"); warehouse.setNome("Almoxarifado da Obra Piloto"); warehouse.setResponsavel("Almoxarifado"); warehouse.setStatus("ATIVO"); warehouse.setObra(site); warehouses.save(warehouse);
@@ -44,11 +45,15 @@ public class InitialDataConfig {
             }
         };
     }
-    private void createUser(UserRepository users, PasswordEncoder encoder, String name, String email, Role role, String password, String cpf) {
+    private void createUser(UserRepository users, PasswordEncoder encoder, String name, String email, Role role, String password, String cpf, boolean resetExistingAdminPassword) {
         User existing = users.findByEmail(email).orElse(null);
         if (existing != null) {
             if (existing.getRole() != role) {
                 throw new IllegalStateException("O e-mail de bootstrap já está cadastrado com outro perfil. Use um e-mail ainda não cadastrado para o primeiro administrador.");
+            }
+            if (role == Role.ADMIN && resetExistingAdminPassword) {
+                existing.setPassword(encoder.encode(password));
+                users.save(existing);
             }
             return;
         }

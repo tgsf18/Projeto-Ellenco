@@ -37,3 +37,4 @@ jwt:
 ellenco:
   bootstrap:
     enabled: false
+    reset-existing-admin: false

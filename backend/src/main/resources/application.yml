@@ -64,6 +64,7 @@ cors:
 ellenco:
   bootstrap:
     enabled: ${BOOTSTRAP_ENABLED:false}
+    reset-existing-admin: ${ELLENCO_BOOTSTRAP_RESET_EXISTING_ADMIN:false}
   app-url: ${APP_URL:http://localhost:5173}
 
 email:
