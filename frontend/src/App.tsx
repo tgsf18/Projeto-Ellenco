@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { BarChart3, Bell, Boxes, ChevronLeft, ChevronRight, ClipboardList, HardHat, Home, LogOut, Menu, Moon, Package, RefreshCw, Settings, Sun, UserRound, Wrench, X } from 'lucide-react'
+import { BarChart3, Bell, Boxes, ChevronLeft, ChevronRight, ClipboardList, HardHat, Home, LogOut, Menu, Moon, Package, QrCode, RefreshCw, Settings, Sun, UserRound, Wrench, X } from 'lucide-react'
 import { AuthUser, isTokenValid, request } from './api'
 import Login from './pages/Login'
 import LoadingScreen from './components/LoadingScreen'
@@ -17,10 +17,11 @@ import ToolsPanel from './components/ToolsPanel'
 import SyncPanel from './components/SyncPanel'
 import ToastHost from './components/ToastHost'
 import QrDestinationPage from './components/QrDestinationPage'
+import QrCodeAdminPanel from './components/QrCodeAdminPanel'
 import { QrTarget, qrTargetFromCurrentUrl } from './utils/qrDestination'
 import './product-qr.css'
 
-type View = 'home' | 'dashboard' | 'receipts' | 'stock' | 'movements' | 'inventory' | 'tools' | 'epi' | 'sync' | 'employees' | 'audit' | 'reports' | 'management' | 'account'
+type View = 'home' | 'dashboard' | 'receipts' | 'stock' | 'movements' | 'inventory' | 'tools' | 'epi' | 'sync' | 'employees' | 'audit' | 'reports' | 'management' | 'qr-codes' | 'account'
 type Theme = 'light' | 'dark'
 
 const labels: Record<View, string> = {
@@ -37,6 +38,7 @@ const labels: Record<View, string> = {
   audit: 'Auditoria',
   reports: 'Relatórios',
   management: 'Gerenciamento',
+  'qr-codes': 'Etiquetas QR',
   account: 'Minha conta'
 }
 
@@ -54,6 +56,7 @@ const icons: Record<View, any> = {
   audit: ClipboardList,
   reports: BarChart3,
   management: Settings,
+  'qr-codes': QrCode,
   account: UserRound
 }
 
@@ -157,7 +160,7 @@ export default function App() {
     }
     const base: View[] = ['home', 'dashboard', 'receipts', 'stock', 'movements', 'inventory', 'tools', 'epi', 'sync', 'audit']
     if (user.role === 'ADMIN' || user.role === 'CEO' || user.role === 'GLOBAL_ADMIN') {
-      base.push('management')
+      base.push('management', 'qr-codes')
     }
     base.push('account')
     return base
@@ -201,6 +204,7 @@ export default function App() {
     : current === 'epi' ? <EpiPanel user={user} />
     : current === 'sync' ? <SyncPanel />
     : current === 'audit' ? <AuditPanel />
+    : current === 'qr-codes' ? <QrCodeAdminPanel />
     : <ManagementReports user={user} />
 
   const nav = (mobile = false) => (
