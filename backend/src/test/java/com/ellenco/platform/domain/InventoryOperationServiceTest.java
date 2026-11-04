@@ -34,6 +34,9 @@ class InventoryOperationServiceTest {
     @Mock
     private AuditService audit;
 
+    @Mock
+    private ConstructionSiteRepository sites;
+
     private InventoryOperationService service;
     private User testUser;
     private Product testProduct;
@@ -42,7 +45,7 @@ class InventoryOperationServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new InventoryOperationService(balances, products, warehouses, movements, audit);
+        service = new InventoryOperationService(balances, products, warehouses, movements, audit, sites);
         testUser = new User("Operador", "operador@ellenco.com", "pass", Role.SUPERVISOR);
 
         testWarehouse = new Warehouse();
@@ -197,5 +200,21 @@ class InventoryOperationServiceTest {
         assertEquals(new BigDecimal("100.00"), testBalance.getQuantidadeAtual());
         assertEquals(new BigDecimal("30.00"), testBalance.getQuantidadeReservada());
         assertEquals(new BigDecimal("70.00"), testBalance.getQuantidadeDisponivel());
+    }
+
+    @Test
+    void ajusteDiretoDeveSerBloqueadoEExigirAprovacaoDeInventario() {
+        InventoryOperationRequest request = new InventoryOperationRequest(
+                OperationType.AJUSTE, 10L, 100L, 1L, null, "LOTE-2026-A", "A-01", null,
+                null, new BigDecimal("5.00"), null, null, null, null, "Operador",
+                "Ajuste direto", null);
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> service.execute(request, testUser));
+
+        assertTrue(ex.getMessage().contains("aprovação de um inventário"));
+        assertEquals(new BigDecimal("100.00"), testBalance.getQuantidadeAtual());
+        verify(balances, never()).save(any());
+        verify(movements, never()).save(any());
     }
 }

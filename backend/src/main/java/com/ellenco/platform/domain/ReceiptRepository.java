@@ -18,6 +18,8 @@ public interface ReceiptRepository extends JpaRepository<Receipt, Long> {
     List<Receipt> findByStatusOrderByDataRecebimentoDesc(String status);
     long countByStatus(String status);
 
+    boolean existsByFornecedorIdAndNumeroNota(Long fornecedorId, String numeroNota);
+
     @Query("SELECT COUNT(r) FROM Receipt r WHERE r.status IN ('AGUARDANDO_CONFERENCIA', 'EM_CONFERENCIA')")
     long countPendentes();
 

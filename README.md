@@ -39,10 +39,12 @@ Para rodar em qualquer computador sem precisar compilar ou configurar nada manua
 
 ```bash
 cd backend
-java -jar app.jar --ellenco.bootstrap.enabled=true
+java -jar app.jar
 # Ou para recompilar via Maven:
 # mvn spring-boot:run
 ```
+
+Defina `JWT_SECRET` antes de iniciar a API. O iniciador `iniciar.ps1` gera uma chave e uma senha de demonstração temporárias automaticamente.
 
 ### Frontend
 
@@ -97,15 +99,74 @@ Em produção, defina `BOOTSTRAP_ENABLED=false` depois de criar contas administr
 - `compose.yaml` — frontend, backend e PostgreSQL com health checks.
 - `backend/src/main/resources/db/migration/` — esquema versionado pelo Flyway.
 
-## Próximas etapas recomendadas
+## Publicação no Render com o frontend servido pelo backend
 
-- CRUD de galpões
-- cadastro de produtos e categorias
-- recebimento e conferência
-- distribuição e obras
-- EPI e entrega
-- assinatura e fotos
-- auditoria e relatórios
-- PWA e mobile-first
+O frontend de produção é compilado para `backend/src/main/resources/static` e servido pelo mesmo Spring Boot que atende a API. A aplicação usa chamadas relativas em `/api`, portanto o navegador acessa interface e API pelo mesmo domínio e não depende de liberar uma porta do Render para o Vercel.
+
+Sempre que alterar o React, gere e inclua os arquivos estáticos junto com a mudança:
+
+```bash
+cd frontend
+npm ci
+npm run build:static
+```
+
+O comando compila TypeScript/React e substitui os arquivos publicados no diretório estático do backend. Faça commit dos arquivos de `frontend/src` e de `backend/src/main/resources/static` para que o deploy do backend carregue a nova interface.
+
+No serviço Web do Render, use o diretório `backend`, Java 17 e:
+
+```text
+Build command: mvn -B clean package
+Start command: java -Dspring.profiles.active=render -jar target/ellenco-platform-0.0.1-SNAPSHOT.jar
+Health check path: /actuator/health
+```
+
+Configure as variáveis no Render, nunca no GitHub:
+
+```text
+SPRING_PROFILES_ACTIVE=render
+SPRING_DATASOURCE_URL=jdbc:postgresql://<host-do-pooler-supabase>:5432/postgres?sslmode=require
+SPRING_DATASOURCE_USERNAME=<usuario-do-pooler>
+SPRING_DATASOURCE_PASSWORD=<senha-do-banco>
+JWT_SECRET=<segredo-aleatorio-longo>
+APP_URL=https://<dominio-do-servico-render>
+```
+
+Para Render + Supabase, use a connection string do **pooler em modo Session** fornecida em Supabase → Connect. Não use credenciais de banco no frontend. O perfil `render` ativa PostgreSQL, valida o esquema com Hibernate, aplica migrações Flyway e vincula a aplicação à porta `PORT` informada pelo Render.
+
+### Primeiro acesso como administrador no Render
+
+1. Em **Render → serviço Web → Environment**, configure `ELLENCO_BOOTSTRAP_ENABLED=true`, `ELLENCO_BOOTSTRAP_ADMIN_EMAIL` com um e-mail ainda não cadastrado e `ELLENCO_BOOTSTRAP_ADMIN_PASSWORD` com a senha forte que será usada na conta (mínimo de 12 caracteres).
+2. Salve e faça o deploy. Aguarde o health check ficar `Live` e abra o endereço HTTPS do serviço.
+3. Entre usando o e-mail e a senha definidos no Render. Guarde a senha em local seguro: remover a variável de bootstrap não altera a senha da conta.
+4. Remova `ELLENCO_BOOTSTRAP_ADMIN_PASSWORD`, mude `ELLENCO_BOOTSTRAP_ENABLED` para `false` e faça novo deploy. O administrador já criado permanece no banco.
+5. Para as demais pessoas, use **Criar conta**; cadastro público concede apenas o perfil Funcionário. Um administrador pode alterar o perfil depois, pela gestão de usuários.
+
+Não tente criar o primeiro administrador pelo cadastro público. Se o e-mail informado no bootstrap já existir com um perfil diferente, a aplicação interrompe a inicialização para evitar promover uma conta por engano. Nunca envie a senha pelo GitHub ou por mensagens públicas.
+
+Os relatórios mostram tabelas filtráveis por intervalo; **Exportar Excel (CSV)** gera arquivo que o Excel abre, e **Imprimir / PDF** usa a impressão do navegador. Campos `date` e `datetime-local` abrem o seletor de calendário nativo do dispositivo.
+
+O Render fornece um endereço HTTPS `onrender.com` para acesso imediato. Um domínio próprio exige que o domínio esteja registrado e que os registros DNS correspondentes sejam configurados no Render e no provedor do domínio.
+
+### Catálogos, recebimentos e entrega de EPI
+
+- Campos de relacionamento pesquisam funcionários, cargos, obras, galpões, fornecedores e produtos já cadastrados. O texto digitado na busca só filtra opções; não cria registros. A busca também considera as iniciais do cargo, por exemplo `RH` para `Recursos Humanos`.
+- As funções de trabalho aceitas ficam em `JobFunctionCatalog`; os cargos de acesso (Funcionário, Supervisor, Administrador, CEO e Administrador Global) continuam sendo outro dado e não são tratados como profissão.
+- Para receber um EPI, cadastre o produto com CA e validade do CA, e informe lote e validade futura na nota. No recebimento, selecione fornecedor, galpão e produto do catálogo.
+- A entrega de EPI exige funcionário ativo, EPI com CA vigente, lote identificado e válido, previsão de troca dentro das validades e saldo disponível. A operação baixa o saldo do lote e grava o movimento junto à entrega e ao aceite.
+- O Flyway aplica as migrações `V008`–`V013` para separar quem abriu e aprovou inventário, vincular entrega e saldo/movimentação, registrar validade do CA, relacionar fornecedor e empréstimo à obra e evitar repetir a mesma nota do fornecedor.
+
+### Operação e desempenho
+
+- O dashboard reaproveita a resposta por 15 segundos e se atualiza após operações concluídas, evitando consultas repetidas ao navegar entre telas.
+- Respostas de `/api` não são gravadas no cache offline do navegador, pois podem conter dados privados de pessoas e estoque.
+- Operações de estoque e EPI não são reenviadas automaticamente depois de uma falha de rede. Confira o histórico antes de tentar novamente para evitar duplicar entregas ou movimentações.
+- Alertas prioritários aparecem em notificações compactas e podem abrir o módulo relacionado.
+
+## Dependências externas para a entrada em produção
+
+- Validar no Render as variáveis de ambiente do PostgreSQL/Supabase, segredo JWT, serviço de e-mail e configuração do deploy automático.
+- Para usar um domínio próprio, registrar o domínio e configurar DNS no Render e no registrador.
+- Ativar integrações ERP, RH, SESMT ou eSocial somente após receber credenciais e endpoints oficiais da empresa.
 
 Este repositório está preparado para evoluir incrementalmente, sem apagar a base original de estudo do projeto Conliz.

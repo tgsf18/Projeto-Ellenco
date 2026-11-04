@@ -98,8 +98,18 @@ if ($mode -eq "STANDALONE") {
 # 5. Iniciar os serviços
 Write-Host "[4/4] Iniciando a plataforma..." -ForegroundColor Green
 
+# A senha de demonstração é criada somente em tempo de execução e não fica no repositório.
+$passwordBytes = New-Object byte[] 24
+$jwtSecretBytes = New-Object byte[] 48
+$secureRandom = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+$secureRandom.GetBytes($passwordBytes)
+$secureRandom.GetBytes($jwtSecretBytes)
+$localAdminPassword = [Convert]::ToBase64String($passwordBytes).Replace('+', 'A').Replace('/', 'B').TrimEnd('=')
+$localJwtSecret = [Convert]::ToBase64String($jwtSecretBytes)
+$secureRandom.Dispose()
+
 # Dispara o Backend/Plataforma
-$backendProc = Start-Process -FilePath $javaExecutable -ArgumentList "-jar", "`"$jarPath`"", "--ellenco.bootstrap.enabled=true" -WorkingDirectory "$rootDir\backend" -PassThru -WindowStyle Hidden
+$backendProc = Start-Process -FilePath $javaExecutable -ArgumentList "-jar", "`"$jarPath`"", "--jwt.secret=$localJwtSecret", "--ellenco.bootstrap.enabled=true", "--ellenco.bootstrap.admin-email=admin@ellenco.com", "--ellenco.bootstrap.admin-password=$localAdminPassword" -WorkingDirectory "$rootDir\backend" -PassThru -WindowStyle Hidden
 Write-Host "      - Servidor PID: $($backendProc.Id)" -ForegroundColor Gray
 
 $frontendProc = $null
@@ -145,9 +155,9 @@ Write-Host "  Acesse no navegador: $targetUrl" -ForegroundColor White
 Write-Host "  Console H2 (Banco):  http://localhost:8083/h2-console" -ForegroundColor White
 Write-Host ""
 Write-Host "  CREDENCIAIS DE ACESSO:" -ForegroundColor Yellow
-Write-Host "  - Administrador: admin@ellenco.com       / Ellenco@123" -ForegroundColor Yellow
-Write-Host "  - Supervisor:    supervisor@ellenco.com  / Ellenco@123" -ForegroundColor Yellow
-Write-Host "  - Funcionário:   funcionario@ellenco.com / Ellenco@123" -ForegroundColor Yellow
+Write-Host "  - Administrador local: admin@ellenco.com" -ForegroundColor Yellow
+Write-Host "  - Senha temporária: $localAdminPassword" -ForegroundColor Yellow
+Write-Host "  - Credencial local de demonstração; não use em produção." -ForegroundColor Yellow
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "DICA: Para fechar tudo a qualquer momento, execute parar.bat" -ForegroundColor Gray

@@ -24,11 +24,13 @@ public class InitialDataConfig {
     @Bean
     @ConditionalOnProperty(name = "ellenco.bootstrap.enabled", havingValue = "true", matchIfMissing = false)
     CommandLineRunner initialData(UserRepository users, CategoryRepository categories, ProductRepository products, ConstructionSiteRepository sites, WarehouseRepository warehouses, PasswordEncoder encoder,
-                                  @Value("${ellenco.bootstrap.password:Ellenco@123}") String bootstrapPassword) {
+                                  @Value("${ellenco.bootstrap.admin-email:}") String adminEmail,
+                                  @Value("${ellenco.bootstrap.admin-password:}") String adminPassword) {
         return args -> {
-            createUser(users, encoder, "Administrador", "admin@ellenco.com", Role.ADMIN, bootstrapPassword, "10000010081");
-            createUser(users, encoder, "Supervisora Operacional", "supervisor@ellenco.com", Role.SUPERVISOR, bootstrapPassword, "10000010162");
-            createUser(users, encoder, "Funcionário", "funcionario@ellenco.com", Role.FUNCIONARIO, bootstrapPassword, "10000010243");
+            if (adminEmail.isBlank() || adminPassword.length() < 12) {
+                throw new IllegalStateException("Bootstrap requer ellenco.bootstrap.admin-email e senha com pelo menos 12 caracteres.");
+            }
+            createUser(users, encoder, "Administrador", adminEmail.trim().toLowerCase(), Role.ADMIN, adminPassword, "10000010081");
             if (sites.count() == 0) {
                 ConstructionSite site = new ConstructionSite(); site.setCodigo("OBRA-001"); site.setNome("Obra Piloto"); site.setResponsavel("Supervisor operacional"); site.setStatus("ATIVA"); sites.save(site);
                 Warehouse warehouse = new Warehouse(); warehouse.setCodigo("GALPAO-001"); warehouse.setNome("Almoxarifado da Obra Piloto"); warehouse.setResponsavel("Almoxarifado"); warehouse.setStatus("ATIVO"); warehouse.setObra(site); warehouses.save(warehouse);
@@ -43,11 +45,16 @@ public class InitialDataConfig {
         };
     }
     private void createUser(UserRepository users, PasswordEncoder encoder, String name, String email, Role role, String password, String cpf) {
-        if (!users.existsByEmail(email)) {
-            User user = new User(name, email, encoder.encode(password), role);
-            user.setCpf(cpf);
-            users.save(user);
+        User existing = users.findByEmail(email).orElse(null);
+        if (existing != null) {
+            if (existing.getRole() != role) {
+                throw new IllegalStateException("O e-mail de bootstrap já está cadastrado com outro perfil. Use um e-mail ainda não cadastrado para o primeiro administrador.");
+            }
+            return;
         }
+        User user = new User(name, email, encoder.encode(password), role);
+        user.setCpf(cpf);
+        users.save(user);
     }
     private Category category(String name, String description) {
         Category category = new Category();

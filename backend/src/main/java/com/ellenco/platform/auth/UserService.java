@@ -1,6 +1,7 @@
 package com.ellenco.platform.auth;
 
 import com.ellenco.platform.domain.Employee;
+import com.ellenco.platform.domain.JobFunctionCatalog;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -8,6 +9,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.util.Objects;
 
 @Service
 public class UserService implements UserDetailsService {
@@ -27,6 +29,17 @@ public class UserService implements UserDetailsService {
                 .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado"));
     }
 
+    public String resolveLoginIdentifier(String identifier) {
+        if (identifier == null || identifier.isBlank()) return "";
+        String value = identifier.trim();
+        if (value.contains("@")) return value.toLowerCase();
+        String cpf = normalizeCpf(value);
+        if (validCpf(cpf)) {
+            return userRepository.findByCpf(cpf).map(User::getEmail).orElse(value);
+        }
+        return value.toLowerCase();
+    }
+
     public User createUser(RegisterRequest request) {
         return registerPublicUser(request);
     }
@@ -36,35 +49,22 @@ public class UserService implements UserDetailsService {
         validateNewUser(request);
         String cpf = normalizeCpf(request.cpf());
 
-        // Cadastro liberado sem necessidade de pré-autorização do RH:
-        // Se o funcionário não existir na base de dados, cria automaticamente para integridade dos módulos operacionais
+        // O cadastro público sempre cria acesso de funcionário. O perfil não vem do corpo da requisição.
         if (employeeRepository.findByCpf(cpf).isEmpty()) {
             Employee emp = new Employee();
             emp.setNome(request.nome().trim());
             emp.setCpf(cpf);
             emp.setTelefone(request.telefone());
-            emp.setFuncao(request.cargo() != null && !request.cargo().isBlank() ? request.cargo() : "Operacional");
+            emp.setFuncao(JobFunctionCatalog.canonicalize(request.cargo()));
             emp.setStatus("ATIVO");
             employeeRepository.save(emp);
-        }
-
-        boolean firstUser = userRepository.count() == 0;
-        Role targetRole = request.role();
-
-        if (targetRole == null) {
-            targetRole = firstUser ? Role.GLOBAL_ADMIN : Role.ADMIN;
-        }
-
-        // Restringe auto-registro de GLOBAL_ADMIN apenas para o primeiríssimo usuário do sistema
-        if (targetRole == Role.GLOBAL_ADMIN && !firstUser) {
-            targetRole = Role.ADMIN;
         }
 
         User user = new User();
         user.setNome(request.nome().trim());
         user.setEmail(request.email().trim().toLowerCase());
         user.setPassword(passwordEncoder.encode(request.password()));
-        user.setRole(targetRole);
+        user.setRole(Role.FUNCIONARIO);
         user.setCpf(cpf);
         user.setTelefone(request.telefone());
         user.setObra(request.obra());
@@ -81,15 +81,9 @@ public class UserService implements UserDetailsService {
         validateNewUser(request);
         Role targetRole = requestedRole != null ? requestedRole : Role.FUNCIONARIO;
 
-        // Regras de hierarquia:
-        // Apenas GLOBAL_ADMIN pode criar outro GLOBAL_ADMIN
-        if (targetRole == Role.GLOBAL_ADMIN && creator.getRole() != Role.GLOBAL_ADMIN) {
-            throw new IllegalArgumentException("Apenas administradores globais AIR podem criar perfis de Administrador Global.");
-        }
-
-        // CEO e ADMIN podem criar ADMIN, SUPERVISOR ou FUNCIONARIO
-        if ((creator.getRole() == Role.ADMIN || creator.getRole() == Role.CEO) && targetRole == Role.GLOBAL_ADMIN) {
-            throw new IllegalArgumentException("Administradores de empresa não possuem permissão para criar administradores globais da plataforma.");
+        // Somente o administrador global pode conceder ou administrar os perfis de diretoria e plataforma.
+        if ((targetRole == Role.GLOBAL_ADMIN || targetRole == Role.CEO) && creator.getRole() != Role.GLOBAL_ADMIN) {
+            throw new IllegalArgumentException("Somente um administrador global pode conceder perfis de diretoria ou plataforma.");
         }
 
         String cpf = normalizeCpf(request.cpf());
@@ -100,7 +94,7 @@ public class UserService implements UserDetailsService {
             emp.setNome(request.nome().trim());
             emp.setCpf(cpf);
             emp.setTelefone(request.telefone());
-            emp.setFuncao(request.cargo() != null ? request.cargo() : "Colaborador");
+            emp.setFuncao(JobFunctionCatalog.canonicalize(request.cargo()));
             emp.setStatus("ATIVO");
             employeeRepository.save(emp);
         }
@@ -115,6 +109,29 @@ public class UserService implements UserDetailsService {
         user.setObra(request.obra());
         user.setMatricula(request.matricula());
         return userRepository.save(user);
+    }
+
+    @Transactional
+    public User updateRole(Long userId, Role requestedRole, User actor) {
+        if (actor == null || requestedRole == null) {
+            throw new IllegalArgumentException("Usuário autenticado e perfil de acesso são obrigatórios.");
+        }
+        User target = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado."));
+
+        if ((requestedRole == Role.GLOBAL_ADMIN || target.getRole() == Role.GLOBAL_ADMIN)
+                && actor.getRole() != Role.GLOBAL_ADMIN) {
+            throw new IllegalArgumentException("Somente um administrador global pode alterar esse perfil.");
+        }
+        if (actor.getRole() != Role.GLOBAL_ADMIN && requestedRole == Role.CEO) {
+            throw new IllegalArgumentException("Somente um administrador global pode atribuir o perfil de diretoria.");
+        }
+        if (Objects.equals(actor.getId(), target.getId()) && requestedRole != actor.getRole()) {
+            throw new IllegalArgumentException("Você não pode alterar o próprio perfil de acesso.");
+        }
+
+        target.setRole(requestedRole);
+        return userRepository.save(target);
     }
 
     private void validateNewUser(RegisterRequest request) {

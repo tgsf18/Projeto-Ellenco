@@ -11,6 +11,13 @@ export type AuthUser = {
   avatar?: string;
 };
 
+function announceSuccessfulMutation(method: string): void {
+  if (typeof window === 'undefined') return;
+  const message = method === 'DELETE' ? 'Registro removido.' : method === 'PATCH' ? 'Alterações salvas.' : 'Operação concluída.';
+  window.dispatchEvent(new CustomEvent('ellenco:toast', { detail: { type: 'success', message } }));
+  window.dispatchEvent(new CustomEvent('ellenco:data-changed'));
+}
+
 export function isTokenValid(token: string | null): boolean {
   if (!token) return false;
   try {
@@ -67,5 +74,9 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
     throw new Error(errorMessage(body));
   }
 
-  return response.status === 204 ? (undefined as T) : response.json();
+  const result = response.status === 204 ? undefined as T : await response.json() as T;
+  if ((options.method || 'GET').toUpperCase() !== 'GET') {
+    announceSuccessfulMutation((options.method || '').toUpperCase());
+  }
+  return result;
 }

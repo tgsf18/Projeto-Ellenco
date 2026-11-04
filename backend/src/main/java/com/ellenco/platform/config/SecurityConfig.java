@@ -54,7 +54,7 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .csrf(csrf -> csrf.disable())
-            .headers(headers -> headers.frameOptions(frame -> frame.disable()))
+            .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()))
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .exceptionHandling(ex -> ex
                 .authenticationEntryPoint(customAuthenticationEntryPoint())
@@ -62,7 +62,8 @@ public class SecurityConfig {
             )
             .authorizeHttpRequests(auth -> auth
                 // Rotas públicas de autenticação, health check e assets estáticos
-                .requestMatchers("/api/auth/**", "/api/health/**", "/actuator/health", "/h2-console/**", "/error").permitAll()
+                .requestMatchers("/api/auth/**", "/api/health/**", "/actuator/health", "/error").permitAll()
+                .requestMatchers("/api/job-functions").permitAll()
                 .requestMatchers("/", "/index.html", "/assets/**", "/*.png", "/*.svg", "/*.ico", "/*.webmanifest", "/*.js", "/*.css").permitAll()
                 // Rotas do frontend SPA (rotas do React sem extensão de arquivo que não começam com /api/)
                 .requestMatchers("/dashboard", "/estoque", "/recebimentos", "/movimentacoes", "/inventario", "/ferramentas", "/epi", "/sync", "/auditoria", "/gerenciamento", "/conta").permitAll()

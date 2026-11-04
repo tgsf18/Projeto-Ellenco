@@ -39,6 +39,24 @@ public class UserController {
         return userService.createManagedUser(request, role, currentUser);
     }
 
+    @PatchMapping("/{id}/role")
+    @PreAuthorize("hasAnyRole('GLOBAL_ADMIN','ADMIN','CEO')")
+    public User updateRole(@PathVariable Long id,
+                          @RequestBody Map<String, String> body,
+                          @AuthenticationPrincipal User currentUser) {
+        String roleName = body.get("role");
+        if (roleName == null || roleName.isBlank()) {
+            throw new IllegalArgumentException("Informe o perfil de acesso.");
+        }
+        final Role requestedRole;
+        try {
+            requestedRole = Role.valueOf(roleName.trim().toUpperCase());
+        } catch (IllegalArgumentException invalidRole) {
+            throw new IllegalArgumentException("Perfil de acesso inválido.");
+        }
+        return userService.updateRole(id, requestedRole, currentUser);
+    }
+
     @PatchMapping("/{id}/status")
     @PreAuthorize("hasAnyRole('GLOBAL_ADMIN','ADMIN','CEO')")
     public ResponseEntity<User> toggleStatus(@PathVariable Long id, @RequestBody Map<String, Boolean> body, @AuthenticationPrincipal User currentUser) {

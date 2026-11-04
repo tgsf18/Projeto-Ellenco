@@ -28,6 +28,9 @@ public class EpiDelivery {
 
     private Long produtoId;
 
+    private Long saldoEstoqueId;
+    private Long movimentoEstoqueId;
+
     @NotBlank
     @Column(nullable = false)
     private String produtoNome;
@@ -99,6 +102,12 @@ public class EpiDelivery {
 
     public Long getProdutoId() { return produtoId; }
     public void setProdutoId(Long produtoId) { this.produtoId = produtoId; }
+
+    public Long getSaldoEstoqueId() { return saldoEstoqueId; }
+    public void setSaldoEstoqueId(Long saldoEstoqueId) { this.saldoEstoqueId = saldoEstoqueId; }
+
+    public Long getMovimentoEstoqueId() { return movimentoEstoqueId; }
+    public void setMovimentoEstoqueId(Long movimentoEstoqueId) { this.movimentoEstoqueId = movimentoEstoqueId; }
 
     public String getProdutoNome() { return produtoNome; }
     public void setProdutoNome(String produtoNome) { this.produtoNome = produtoNome; }

@@ -23,6 +23,9 @@ public class Receipt {
     @Column(nullable = false)
     private String fornecedor;
 
+    @Column(name = "fornecedor_id")
+    private Long fornecedorId;
+
     private String transportadora;
     private String galpaoDestinoNome;
     private Long galpaoId;
@@ -77,6 +80,9 @@ public class Receipt {
 
     public String getFornecedor() { return fornecedor; }
     public void setFornecedor(String fornecedor) { this.fornecedor = fornecedor; }
+
+    public Long getFornecedorId() { return fornecedorId; }
+    public void setFornecedorId(Long fornecedorId) { this.fornecedorId = fornecedorId; }
 
     public String getTransportadora() { return transportadora; }
     public void setTransportadora(String transportadora) { this.transportadora = transportadora; }

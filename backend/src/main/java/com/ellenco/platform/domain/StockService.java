@@ -111,6 +111,7 @@ public class StockService {
         p.setPrecoUnitario(details.getPrecoUnitario());
         p.setEpi(details.isEpi());
         p.setNumeroCa(details.getNumeroCa());
+        p.setValidadeCa(details.getValidadeCa());
         p.setLocalizacaoPrateleira(details.getLocalizacaoPrateleira());
         if (details.getCategoria() != null) p.setCategoria(details.getCategoria());
         if (details.getGalpao() != null) p.setGalpao(details.getGalpao());
@@ -150,90 +151,7 @@ public class StockService {
 
     @Transactional
     public InventoryMovement registerMovement(InventoryMovement movement, String userEmail, String userNome) {
-        Product product = getProduct(movement.getProduto().getId());
-        BigDecimal qtd = movement.getQuantidade();
-        if (qtd == null || qtd.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException("A quantidade movimentada deve ser maior que zero.");
-        }
-
-        // Localiza ou inicializa o saldo físico do produto no galpão
-        Warehouse wh = product.getGalpao() != null ? product.getGalpao() :
-                warehouseRepository.findAll().stream().findFirst().orElse(null);
-
-        StockBalance balance = null;
-        if (wh != null) {
-            String lot = (product.getLote() == null || product.getLote().isBlank()) ? "SEM_LOTE" : product.getLote().trim();
-            String location = (product.getLocalizacaoPrateleira() == null || product.getLocalizacaoPrateleira().isBlank()) ? "NAO_ENDERECADO" : product.getLocalizacaoPrateleira().trim();
-            balance = stockBalanceRepository.findByProdutoIdAndGalpaoIdAndLoteAndLocalizacaoPrateleira(product.getId(), wh.getId(), lot, location)
-                    .orElseGet(() -> {
-                        StockBalance b = new StockBalance();
-                        b.setProduto(product);
-                        b.setGalpao(wh);
-                        b.setLote(lot);
-                        b.setLocalizacaoPrateleira(location);
-                        b.setQuantidadeMinima(product.getQuantidadeMinima());
-                        return stockBalanceRepository.save(b);
-                    });
-        }
-
-        BigDecimal estoqueAnterior = product.getQuantidadeAtual() != null ? product.getQuantidadeAtual() : BigDecimal.ZERO;
-        BigDecimal novoEstoque = estoqueAnterior;
-
-        switch (movement.getTipo()) {
-            case ENTRADA, DEVOLUCAO -> {
-                novoEstoque = estoqueAnterior.add(qtd);
-                if (balance != null) {
-                    balance.setQuantidadeAtual(balance.getQuantidadeAtual().add(qtd));
-                }
-            }
-            case SAIDA, TRANSFERENCIA -> {
-                if (estoqueAnterior.compareTo(qtd) < 0) {
-                    throw new IllegalArgumentException("Saldo insuficiente em estoque. Disponível: " + estoqueAnterior + " " + product.getUnidade());
-                }
-                novoEstoque = estoqueAnterior.subtract(qtd);
-                if (balance != null) {
-                    if (balance.getQuantidadeDisponivel().compareTo(qtd) < 0) {
-                        throw new IllegalArgumentException("Saldo disponível no almoxarifado insuficiente. Disponível: " + balance.getQuantidadeDisponivel());
-                    }
-                    balance.setQuantidadeAtual(balance.getQuantidadeAtual().subtract(qtd));
-                }
-            }
-            case AJUSTE -> {
-                novoEstoque = qtd;
-                if (balance != null) {
-                    balance.setQuantidadeAtual(qtd);
-                }
-            }
-            default -> throw new IllegalArgumentException("Tipo de movimentação não suportado nesta operação.");
-        }
-
-        if (balance != null) {
-            stockBalanceRepository.save(balance);
-        }
-
-        product.setQuantidadeAtual(novoEstoque);
-        product.setUpdatedAt(LocalDateTime.now());
-        productRepository.save(product);
-
-        movement.setProduto(product);
-        movement.setProdutoNome(product.getNome());
-        movement.setProdutoCodigo(product.getCodigo());
-        movement.setResponsavel(userNome != null ? userNome : userEmail);
-        movement.setComprovanteCodigo("MOV-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
-        movement.setCreatedAt(LocalDateTime.now());
-        if (balance != null) {
-            movement.setSaldoOrigemId(balance.getId());
-            movement.setLote(balance.getLote());
-            movement.setLocalizacao(balance.getLocalizacaoPrateleira());
-        }
-        InventoryMovement saved = movementRepository.save(movement);
-
-        auditService.log(userNome, userEmail, "ESTOQUE", "MOVIMENTACAO_" + movement.getTipo().name(), "InventoryMovement",
-                saved.getId().toString(), "Movimentação " + movement.getTipo() + " de " + qtd + " " + product.getUnidade() +
-                        " do produto " + product.getNome() + ". Saldo alterado de " + estoqueAnterior + " para " + novoEstoque +
-                        (movement.getMotivo() != null ? " | Motivo: " + movement.getMotivo() : ""));
-
-        return saved;
+        throw new IllegalArgumentException("Use /api/inventory/operations para movimentações por lote. Ajustes de saldo devem passar pela aprovação de um inventário.");
     }
 
     public List<Product> listBaixoEstoque() {

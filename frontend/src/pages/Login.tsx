@@ -1,7 +1,8 @@
-import { FormEvent, useState } from 'react'
+import { FormEvent, useEffect, useState } from 'react'
 import { Eye, EyeOff, LockKeyhole, Mail, UserCheck } from 'lucide-react'
-import { AuthUser, request, UserRole } from '../api'
+import { AuthUser, request } from '../api'
 import LoadingScreen from '../components/LoadingScreen'
+import SearchableSelect from '../components/SearchableSelect'
 
 type Mode = 'login' | 'register' | 'forgot' | 'reset'
 
@@ -13,12 +14,15 @@ export default function Login({ onLogin }: { onLogin: (u: AuthUser) => void }) {
   const [confirm, setConfirm] = useState('')
   const [name, setName] = useState('')
   const [cpf, setCpf] = useState('')
-  const [chosenRole, setChosenRole] = useState<UserRole>('ADMIN')
+  const [cargo, setCargo] = useState('')
+  const [jobFunctions, setJobFunctions] = useState<string[]>([])
   const [show, setShow] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
   const [redirecting, setRedirecting] = useState(false)
+
+  useEffect(() => { request<string[]>('/job-functions').then(setJobFunctions).catch(() => setJobFunctions([])) }, [])
 
   async function submit(e: FormEvent) {
     e.preventDefault()
@@ -27,6 +31,7 @@ export default function Login({ onLogin }: { onLogin: (u: AuthUser) => void }) {
     setMessage('')
 
     try {
+      if (mode === 'register' && !cargo) throw new Error('Selecione seu cargo ou função na lista.')
       if (mode === 'forgot') {
         const r = await request<{ message: string }>('/auth/forgot-password', {
           method: 'POST',
@@ -51,7 +56,7 @@ export default function Login({ onLogin }: { onLogin: (u: AuthUser) => void }) {
       }
 
       const payload = mode === 'register'
-        ? { nome: name, email, password, cpf, role: chosenRole }
+        ? { nome: name, email, password, cpf, cargo }
         : { email, password }
 
       const user = await request<AuthUser>(mode === 'register' ? '/auth/register' : '/auth/login', {
@@ -112,7 +117,7 @@ export default function Login({ onLogin }: { onLogin: (u: AuthUser) => void }) {
           <h2 className="mt-2 text-3xl font-extrabold text-slate-900">{title}</h2>
           <p className="mt-3 text-sm leading-6 text-slate-500">
             {mode === 'register'
-              ? 'Cadastre-se como Administrador ou Funcionário. Acesso imediato sem necessidade de aprovação.'
+              ? 'Crie seu acesso com CPF válido. Novos cadastros entram como funcionário; um administrador pode ajustar seu perfil depois.'
               : mode === 'forgot'
               ? 'Enviaremos instruções de recuperação para o seu e-mail.'
               : mode === 'reset'
@@ -123,45 +128,6 @@ export default function Login({ onLogin }: { onLogin: (u: AuthUser) => void }) {
           <form className="mt-7 space-y-4" onSubmit={submit}>
             {mode === 'register' && (
               <>
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-600">Perfil de Acesso Desejado</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    <button
-                      type="button"
-                      className={`rounded-xl border py-2 text-xs font-bold transition-all ${
-                        chosenRole === 'ADMIN'
-                          ? 'border-ellenco-navy bg-ellenco-navy text-white shadow-sm'
-                          : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
-                      }`}
-                      onClick={() => setChosenRole('ADMIN')}
-                    >
-                      Admin
-                    </button>
-                    <button
-                      type="button"
-                      className={`rounded-xl border py-2 text-xs font-bold transition-all ${
-                        chosenRole === 'SUPERVISOR'
-                          ? 'border-ellenco-navy bg-ellenco-navy text-white shadow-sm'
-                          : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
-                      }`}
-                      onClick={() => setChosenRole('SUPERVISOR')}
-                    >
-                      Supervisor
-                    </button>
-                    <button
-                      type="button"
-                      className={`rounded-xl border py-2 text-xs font-bold transition-all ${
-                        chosenRole === 'FUNCIONARIO'
-                          ? 'border-ellenco-navy bg-ellenco-navy text-white shadow-sm'
-                          : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
-                      }`}
-                      onClick={() => setChosenRole('FUNCIONARIO')}
-                    >
-                      Funcionário
-                    </button>
-                  </div>
-                </div>
-
                 <input
                   className="login-input"
                   placeholder="Nome completo"
@@ -177,6 +143,9 @@ export default function Login({ onLogin }: { onLogin: (u: AuthUser) => void }) {
                   onChange={e => setCpf(e.target.value)}
                   required
                 />
+                <label className="login-select-label">Cargo / função
+                  <SearchableSelect ariaLabel="Cargo ou função" value={cargo} options={jobFunctions.map(value=>({value,label:value}))} onChange={setCargo} placeholder="Pesquisar cargo (ex.: RH)"/>
+                </label>
               </>
             )}
 
@@ -184,8 +153,9 @@ export default function Login({ onLogin }: { onLogin: (u: AuthUser) => void }) {
               <div className="login-field">
                 <Mail />
                 <input
-                  type="email"
-                  placeholder="E-mail corporativo"
+                  type={mode === 'login' ? 'text' : 'email'}
+                  inputMode={mode === 'login' ? 'text' : 'email'}
+                  placeholder={mode === 'login' ? 'E-mail ou CPF' : 'E-mail corporativo'}
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   required
@@ -241,7 +211,7 @@ export default function Login({ onLogin }: { onLogin: (u: AuthUser) => void }) {
                 : mode === 'reset'
                 ? 'Atualizar senha'
                 : mode === 'register'
-                ? `Criar acesso como ${chosenRole === 'ADMIN' ? 'Administrador' : chosenRole === 'SUPERVISOR' ? 'Supervisor' : 'Funcionário'}`
+                ? 'Criar acesso de funcionário'
                 : 'Entrar'}
             </button>
           </form>

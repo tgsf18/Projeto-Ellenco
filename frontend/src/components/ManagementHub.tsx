@@ -1,32 +1,19 @@
 import { useMemo, useState } from 'react'
-import { BarChart3, Users, Building2, History, FileText, Search, UserPlus } from 'lucide-react'
-import { request } from '../api'
+import { BarChart3, Users, Building2, History, Search, UserPlus } from 'lucide-react'
+import { AuthUser, UserRole, request } from '../api'
 import Modal from './Modal'
+import SearchableSelect from './SearchableSelect'
+import ManagementReports from './ManagementReports'
 import './ManagementHub.css'
 
-type Period = 'Diário' | 'Mensal' | 'Anual';
-type Module = 'GERAL' | 'RECEBIMENTOS' | 'ESTOQUE' | 'EPI'
 type User = { id: number; nome: string; email: string; cpf?: string; role: string; ativo: boolean; obra?: string; createdAt?: string }
-type Receipt = { numeroNota?: string; fornecedor?: string; galpaoDestinoNome?: string; status?: string; dataRecebimento?: string; createdAt?: string; itens?: { produtoNome?: string; quantidadeNota?: number; unidade?: string; lote?: string; dataValidade?: string }[] }
-type Product = { codigo: string; nome: string; unidade?: string; quantidadeAtual?: number; quantidadeMinima?: number; lote?: string; dataValidade?: string; galpao?: { nome?: string; obra?: { nome?: string } } }
-type Movement = { produtoNome?: string; produtoCodigo?: string; tipo?: string; quantidade?: number; origem?: string; destino?: string; responsavel?: string; createdAt?: string }
-type Epi = { funcionarioNome?: string; funcionarioCpf?: string; produtoNome?: string; numeroCa?: string; quantidade?: number; status?: string; dataEntrega?: string; dataPrevisaoTroca?: string; assinaturaDigital?: string; termoAssinado?: boolean }
+type Employee = { id:number;nome:string;cpf:string;funcao?:string;matricula?:string;status?:string;obra?:{nome?:string} }
 type Site = { id: number; codigo: string; nome: string; endereco?: string; responsavel?: string; status?: string }
 type Warehouse = { id: number; codigo?: string; nome: string; endereco?: string; responsavel?: string; status?: string; capacidade?: number; obra?: Site }
 type Audit = { id: number; usuarioNome?: string; modulo?: string; acao?: string; detalhes?: string; dataHora?: string }
 
-const safe = (v: unknown) => String(v ?? '—').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c]!))
-const inPeriod = (value: string | undefined, period: Period) => {
-  if (!value) return period === 'Anual';
-  const d = new Date(value), n = new Date();
-  return period === 'Diário' ? d.toDateString() === n.toDateString() : period === 'Mensal' ? d.getMonth() === n.getMonth() && d.getFullYear() === n.getFullYear() : d.getFullYear() === n.getFullYear()
-}
-const rows = (data: string[][], cols: number) => data.length ? data.map(r => '<tr>' + r.map(c => `<td>${safe(c)}</td>`).join('') + '</tr>').join('') : `<tr><td colspan="${cols}">Sem registros no período.</td></tr>`
-
-export default function ManagementHub() {
+export default function ManagementHub({ user }: { user: AuthUser }) {
   const [modal, setModal] = useState<'reports' | 'users' | 'structure' | 'audit' | 'createUser' | null>(null)
-  const [period, setPeriod] = useState<Period>('Mensal')
-  const [module, setModule] = useState<Module>('GERAL')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
 
@@ -35,17 +22,22 @@ export default function ManagementHub() {
   const [role, setRole] = useState('TODOS')
   const [sites, setSites] = useState<Site[]>([])
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
+  const [employees, setEmployees] = useState<Employee[]>([])
   const [audits, setAudits] = useState<Audit[]>([])
+  const [jobFunctions, setJobFunctions] = useState<string[]>([])
 
-  const [siteDraft, setSiteDraft] = useState({ codigo: '', nome: '', endereco: '', responsavel: '' })
-  const [warehouseDraft, setWarehouseDraft] = useState({ codigo: '', nome: '', obraId: '', endereco: '', responsavel: '', capacidade: '' })
-  const [newUser, setNewUser] = useState({ nome: '', email: '', password: '', cpf: '', telefone: '', obra: '', matricula: '', role: 'SUPERVISOR' })
+  const [siteDraft, setSiteDraft] = useState({ codigo: '', nome: '', endereco: '', responsavelId: '' })
+  const [warehouseDraft, setWarehouseDraft] = useState({ codigo: '', nome: '', obraId: '', endereco: '', responsavelId: '', capacidade: '' })
+  const [newUser, setNewUser] = useState({ nome: '', email: '', password: '', cpf: '', telefone: '', obra: '', matricula: '', cargo: '', role: 'SUPERVISOR' })
 
   async function openUsers() {
     setModal('users')
     setLoading(true)
     try {
-      setUsers(await request<User[]>('/users'))
+      const [loadedUsers, loadedSites, loadedFunctions] = await Promise.all([request<User[]>('/users'), request<Site[]>('/construction-sites'), request<string[]>('/job-functions')])
+      setUsers(loadedUsers)
+      setSites(loadedSites)
+      setJobFunctions(loadedFunctions)
     } catch (e) {
       setMessage(e instanceof Error ? e.message : 'Erro ao carregar usuários.')
     } finally {
@@ -57,9 +49,10 @@ export default function ManagementHub() {
     setModal('structure')
     setLoading(true)
     try {
-      const [s, w] = await Promise.all([request<Site[]>('/construction-sites'), request<Warehouse[]>('/warehouses')])
+      const [s, w, e] = await Promise.all([request<Site[]>('/construction-sites'), request<Warehouse[]>('/warehouses'), request<Employee[]>('/employees')])
       setSites(s)
       setWarehouses(w)
+      setEmployees(e)
     } catch (e) {
       setMessage(e instanceof Error ? e.message : 'Erro ao carregar estruturas.')
     } finally {
@@ -90,8 +83,8 @@ export default function ManagementHub() {
     setLoading(true)
     setMessage('')
     try {
-      await request('/construction-sites', { method: 'POST', body: JSON.stringify({ ...siteDraft, status: 'ATIVA' }) })
-      setSiteDraft({ codigo: '', nome: '', endereco: '', responsavel: '' })
+      await request('/construction-sites', { method: 'POST', body: JSON.stringify({ codigo: siteDraft.codigo, nome: siteDraft.nome, endereco: siteDraft.endereco, responsavel: employees.find(e=>e.cpf===siteDraft.responsavelId)?.nome||'', status: 'ATIVA' }) })
+      setSiteDraft({ codigo: '', nome: '', endereco: '', responsavelId: '' })
       await reloadStructure()
       setMessage('Obra cadastrada com sucesso. Agora você pode criar o galpão.')
     } catch (e) {
@@ -112,13 +105,13 @@ export default function ManagementHub() {
           codigo: warehouseDraft.codigo,
           nome: warehouseDraft.nome,
           endereco: warehouseDraft.endereco,
-          responsavel: warehouseDraft.responsavel,
+          responsavel: employees.find(e=>e.cpf===warehouseDraft.responsavelId)?.nome||'',
           capacidade: warehouseDraft.capacidade ? Number(warehouseDraft.capacidade) : null,
           status: 'ATIVO',
           obra: { id: Number(warehouseDraft.obraId) }
         })
       })
-      setWarehouseDraft({ codigo: '', nome: '', obraId: '', endereco: '', responsavel: '', capacidade: '' })
+      setWarehouseDraft({ codigo: '', nome: '', obraId: '', endereco: '', responsavelId: '', capacidade: '' })
       await reloadStructure()
       setMessage('Galpão cadastrado e vinculado à obra.')
     } catch (e) {
@@ -138,7 +131,7 @@ export default function ManagementHub() {
         body: JSON.stringify(newUser)
       })
       setMessage(`Usuário ${newUser.nome} cadastrado com sucesso com perfil ${newUser.role}.`)
-      setNewUser({ nome: '', email: '', password: '', cpf: '', telefone: '', obra: '', matricula: '', role: 'SUPERVISOR' })
+      setNewUser({ nome: '', email: '', password: '', cpf: '', telefone: '', obra: '', matricula: '', cargo: '', role: 'SUPERVISOR' })
       setModal('users')
       setUsers(await request<User[]>('/users'))
     } catch (e) {
@@ -161,6 +154,30 @@ export default function ManagementHub() {
     }
   }
 
+  async function updateUserRole(u: User, nextRole: UserRole) {
+    if (u.role === nextRole) return
+    try {
+      const updated = await request<User>(`/users/${u.id}/role`, {
+        method: 'PATCH',
+        body: JSON.stringify({ role: nextRole })
+      })
+      setUsers(prev => prev.map(item => item.id === updated.id ? updated : item))
+      setMessage(`Perfil de ${updated.nome} atualizado para ${updated.role}.`)
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : 'Não foi possível alterar o perfil.')
+    }
+  }
+
+  const assignableRoles: { value: UserRole; label: string }[] = [
+    { value: 'FUNCIONARIO', label: 'Funcionário' },
+    { value: 'SUPERVISOR', label: 'Supervisor' },
+    { value: 'ADMIN', label: 'Administrador da empresa' },
+    ...(user.role === 'GLOBAL_ADMIN' ? [
+      { value: 'CEO' as const, label: 'CEO / Diretoria' },
+      { value: 'GLOBAL_ADMIN' as const, label: 'Administrador global AIR' }
+    ] : [])
+  ]
+
   const visibleUsers = useMemo(() => {
     const q = userSearch.toLowerCase().trim()
     return users.filter(u =>
@@ -168,48 +185,6 @@ export default function ManagementHub() {
       [u.nome, u.cpf, u.email, u.role, u.obra].some(v => v?.toLowerCase().includes(q))
     )
   }, [users, userSearch, role])
-
-  async function generate() {
-    setLoading(true)
-    setMessage('')
-    try {
-      const [receiptsData, productsData, movementsData, epiData] = await Promise.all([
-        request<Receipt[]>('/receipts'),
-        request<Product[]>('/stock/products'),
-        request<Movement[]>('/stock/movements'),
-        request<Epi[]>('/epi')
-      ])
-
-      const receipts = receiptsData.filter(x => inPeriod(x.dataRecebimento || x.createdAt, period))
-      const movements = movementsData.filter(x => inPeriod(x.createdAt, period))
-      const epis = epiData.filter(x => inPeriod(x.dataEntrega, period))
-      const low = productsData.filter(x => Number(x.quantidadeAtual || 0) <= Number(x.quantidadeMinima || 0))
-
-      const sections: string[] = []
-      if (module === 'GERAL' || module === 'RECEBIMENTOS') {
-        sections.push(`<h2>Recebimentos</h2><p>${receipts.length} registro(s) no período.</p><table><thead><tr><th>Nota</th><th>Fornecedor</th><th>Obra / galpão</th><th>Itens e lotes</th><th>Status</th></tr></thead><tbody>${rows(receipts.map(x => [x.numeroNota || '', x.fornecedor || '', x.galpaoDestinoNome || '', (x.itens || []).map(i => `${i.produtoNome} · ${i.quantidadeNota} ${i.unidade || 'UN'} · Lote ${i.lote || 'SEM_LOTE'}`).join(', '), x.status || '']), 5)}</tbody></table>`)
-      }
-      if (module === 'GERAL' || module === 'ESTOQUE') {
-        sections.push(`<h2>Estoque</h2><div class="metrics"><span>Produtos <b>${productsData.length}</b></span><span>Em reposição <b>${low.length}</b></span><span>Movimentações <b>${movements.length}</b></span></div><table><thead><tr><th>Código</th><th>Produto</th><th>Obra / galpão</th><th>Lote / validade</th><th>Saldo / mínimo</th></tr></thead><tbody>${rows(productsData.map(x => [x.codigo, x.nome, [x.galpao?.obra?.nome, x.galpao?.nome].filter(Boolean).join(' · '), `${x.lote || 'SEM_LOTE'} · ${x.dataValidade || 'sem validade'}`, `${x.quantidadeAtual || 0} / ${x.quantidadeMinima || 0} ${x.unidade || 'UN'}`]), 5)}</tbody></table><h3>Movimentações do período</h3><table><thead><tr><th>Produto</th><th>Tipo</th><th>Quantidade</th><th>Origem / destino</th><th>Responsável</th></tr></thead><tbody>${rows(movements.map(x => [x.produtoNome || x.produtoCodigo || '', x.tipo || '', String(x.quantidade || 0), `${x.origem || '—'} → ${x.destino || '—'}`, x.responsavel || '']), 5)}</tbody></table>`)
-      }
-      if (module === 'GERAL' || module === 'EPI') {
-        sections.push(`<h2>Controle de EPI</h2><p>${epis.length} entrega(s) no período.</p><table><thead><tr><th>Funcionário</th><th>CPF</th><th>EPI / CA</th><th>Troca prevista</th><th>Comprovação</th></tr></thead><tbody>${rows(epis.map(x => [x.funcionarioNome || '', x.funcionarioCpf || '', `${x.produtoNome || ''} · ${x.numeroCa || ''}`, x.dataPrevisaoTroca || 'Não informada', x.termoAssinado || x.assinaturaDigital ? 'ASSINADO' : x.status || 'PENDENTE']), 5)}</tbody></table>`)
-      }
-
-      const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Relatório ${module} ${period}</title><style>body{font-family:Arial;color:#173b63;margin:32px}header{border-bottom:4px solid #ef3e42}h2{margin-top:30px}table{width:100%;border-collapse:collapse;font-size:11px}th,td{padding:8px;border-bottom:1px solid #dce5ef;text-align:left}th{background:#f4f7fb}.metrics{display:flex;gap:12px}.metrics span{padding:12px;border:1px solid #dce5ef;border-radius:8px}.metrics b{display:block;font-size:20px}@media print{body{margin:12mm}}</style></head><body><header><h1>ELLENCO · ${module === 'GERAL' ? 'Relatório Geral Integrado' : `Relatório de ${module.toLowerCase()}`}</h1><p>Período: ${period} · Emitido em ${new Date().toLocaleString('pt-BR')}</p></header>${sections.join('')}<footer><p>Documento oficial gerado pela Plataforma Operacional ELLENCO.</p></footer></body></html>`
-
-      const win = window.open('', '_blank')
-      if (!win) throw new Error('Permita pop-ups no navegador para emitir o relatório em PDF.')
-      win.document.write(html)
-      win.document.close()
-      setTimeout(() => win.print(), 250)
-      setMessage('Relatório pronto para impressão ou salvamento em PDF.')
-    } catch (e) {
-      setMessage(e instanceof Error ? e.message : 'Não foi possível emitir o relatório.')
-    } finally {
-      setLoading(false)
-    }
-  }
 
   return (
     <section>
@@ -243,28 +218,8 @@ export default function ManagementHub() {
       </div>
 
       {/* MODAL RELATÓRIOS */}
-      <Modal open={modal === 'reports'} title="Central de relatórios gerenciais" onClose={() => setModal(null)}>
-        <div className="management-modal">
-          <label>Módulo
-            <select value={module} onChange={e => setModule(e.target.value as Module)}>
-              <option value="GERAL">Relatório Geral Integrado</option>
-              <option value="RECEBIMENTOS">Recebimentos e Conferências</option>
-              <option value="ESTOQUE">Estoque e Movimentações</option>
-              <option value="EPI">Controle e Validade de EPI</option>
-            </select>
-          </label>
-          <label>Período
-            <select value={period} onChange={e => setPeriod(e.target.value as Period)}>
-              <option>Diário</option>
-              <option>Mensal</option>
-              <option>Anual</option>
-            </select>
-          </label>
-          <button className="primary-button" disabled={loading} onClick={() => void generate()}>
-            <FileText size={18} />
-            {loading ? 'Gerando…' : 'Emitir relatório em PDF'}
-          </button>
-        </div>
+      <Modal open={modal === 'reports'} title="Relatórios gerenciais" onClose={() => setModal(null)} wide>
+        <ManagementReports embedded />
       </Modal>
 
       {/* MODAL USUÁRIOS */}
@@ -310,7 +265,17 @@ export default function ManagementHub() {
                     <small>{u.email}</small>
                   </td>
                   <td>{u.cpf || 'Não informado'}</td>
-                  <td><span className="role-chip">{u.role}</span></td>
+                  <td>
+                    <select
+                      aria-label={`Perfil de ${u.nome}`}
+                      value={u.role}
+                      disabled={u.id === user.id || (u.role === 'GLOBAL_ADMIN' && user.role !== 'GLOBAL_ADMIN')}
+                      onChange={e => void updateUserRole(u, e.target.value as UserRole)}
+                    >
+                      {!assignableRoles.some(option => option.value === u.role) && <option value={u.role}>{u.role}</option>}
+                      {assignableRoles.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                    </select>
+                  </td>
                   <td>{u.obra || 'Geral'}</td>
                   <td><span className={u.ativo ? 'status ok' : 'status danger'}>{u.ativo ? 'ATIVO' : 'INATIVO'}</span></td>
                   <td>
@@ -365,11 +330,15 @@ export default function ManagementHub() {
             value={newUser.telefone}
             onChange={e => setNewUser({ ...newUser, telefone: e.target.value })}
           />
-          <input
-            placeholder="Obra / Lotação"
-            value={newUser.obra}
-            onChange={e => setNewUser({ ...newUser, obra: e.target.value })}
-          />
+          <label>Obra / lotação
+            <select value={newUser.obra} onChange={e => setNewUser({ ...newUser, obra: e.target.value })}>
+              <option value="">Sem lotação vinculada</option>
+              {sites.map(site => <option key={site.id} value={site.nome}>{site.codigo} · {site.nome}</option>)}
+            </select>
+          </label>
+          <label>Cargo / função
+            <SearchableSelect ariaLabel="Cargo ou função" value={newUser.cargo} options={jobFunctions.map(value => ({ value, label: value }))} onChange={value => setNewUser({ ...newUser, cargo: value })} placeholder="Pesquisar cargo (ex.: RH)" />
+          </label>
           <label>Perfil de acesso
             <select
               value={newUser.role}
@@ -378,8 +347,8 @@ export default function ManagementHub() {
               <option value="FUNCIONARIO">Funcionário</option>
               <option value="SUPERVISOR">Supervisor</option>
               <option value="ADMIN">Administrador da Empresa</option>
-              <option value="CEO">CEO / Diretoria</option>
-              <option value="GLOBAL_ADMIN">Administrador Global AIR</option>
+              {user.role === 'GLOBAL_ADMIN' && <option value="CEO">CEO / Diretoria</option>}
+              {user.role === 'GLOBAL_ADMIN' && <option value="GLOBAL_ADMIN">Administrador Global AIR</option>}
             </select>
           </label>
           <button className="primary-button" disabled={loading}>
@@ -397,7 +366,7 @@ export default function ManagementHub() {
               <input required placeholder="Código da obra (ex: OBR-01)" value={siteDraft.codigo} onChange={e => setSiteDraft({ ...siteDraft, codigo: e.target.value })} />
               <input required placeholder="Nome da obra" value={siteDraft.nome} onChange={e => setSiteDraft({ ...siteDraft, nome: e.target.value })} />
               <input placeholder="Endereço" value={siteDraft.endereco} onChange={e => setSiteDraft({ ...siteDraft, endereco: e.target.value })} />
-              <input placeholder="Responsável" value={siteDraft.responsavel} onChange={e => setSiteDraft({ ...siteDraft, responsavel: e.target.value })} />
+              <label>Responsável cadastrado no RH<SearchableSelect ariaLabel="Responsável da obra" value={siteDraft.responsavelId} options={employees.filter(e=>(e.status||'ATIVO').toUpperCase()==='ATIVO').map(e=>({value:e.cpf,label:e.nome,description:[e.funcao,e.matricula&&`Matrícula ${e.matricula}`,e.cpf].filter(Boolean).join(' · ')}))} onChange={responsavelId=>setSiteDraft({...siteDraft,responsavelId})} placeholder="Pesquisar funcionário por nome ou cargo"/></label>
               <button className="primary-button" disabled={loading}>{loading ? 'Salvando…' : 'Cadastrar obra'}</button>
             </form>
             <form onSubmit={createWarehouse}>
@@ -409,7 +378,7 @@ export default function ManagementHub() {
               <input required placeholder="Código do galpão (ex: GALP-01)" value={warehouseDraft.codigo} onChange={e => setWarehouseDraft({ ...warehouseDraft, codigo: e.target.value })} />
               <input required placeholder="Nome do galpão" value={warehouseDraft.nome} onChange={e => setWarehouseDraft({ ...warehouseDraft, nome: e.target.value })} />
               <input placeholder="Endereço / localização" value={warehouseDraft.endereco} onChange={e => setWarehouseDraft({ ...warehouseDraft, endereco: e.target.value })} />
-              <input placeholder="Responsável" value={warehouseDraft.responsavel} onChange={e => setWarehouseDraft({ ...warehouseDraft, responsavel: e.target.value })} />
+              <label>Responsável cadastrado no RH<SearchableSelect ariaLabel="Responsável do galpão" value={warehouseDraft.responsavelId} options={employees.filter(e=>(e.status||'ATIVO').toUpperCase()==='ATIVO').map(e=>({value:e.cpf,label:e.nome,description:[e.funcao,e.matricula&&`Matrícula ${e.matricula}`,e.cpf].filter(Boolean).join(' · ')}))} onChange={responsavelId=>setWarehouseDraft({...warehouseDraft,responsavelId})} placeholder="Pesquisar funcionário por nome ou cargo"/></label>
               <input type="number" min="0" placeholder="Capacidade estimada" value={warehouseDraft.capacidade} onChange={e => setWarehouseDraft({ ...warehouseDraft, capacidade: e.target.value })} />
               <button className="primary-button" disabled={loading || !sites.length}>
                 {sites.length ? (loading ? 'Salvando…' : 'Cadastrar galpão') : 'Cadastre uma obra primeiro'}

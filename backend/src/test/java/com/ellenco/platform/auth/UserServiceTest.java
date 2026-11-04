@@ -36,10 +36,10 @@ class UserServiceTest {
     }
 
     @Test
-    void primeiroUsuarioCadastradoDeveSerGlobalAdmin() {
+    void cadastroPublicoSempreCriaFuncionarioMesmoQuandoPedePerfilElevado() {
         when(userRepository.existsByEmail(anyString())).thenReturn(false);
         when(userRepository.existsByCpf(anyString())).thenReturn(false);
-        when(userRepository.count()).thenReturn(0L);
+        when(employeeRepository.findByCpf("11144477735")).thenReturn(Optional.empty());
         when(passwordEncoder.encode(anyString())).thenReturn("hashed_pass");
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -52,12 +52,13 @@ class UserServiceTest {
                 "11144477735",
                 "11999999999",
                 "Matriz",
-                "MAT-001"
+                "MAT-001",
+                Role.GLOBAL_ADMIN
         );
 
         User created = userService.registerPublicUser(request);
         assertNotNull(created);
-        assertEquals(Role.GLOBAL_ADMIN, created.getRole());
+        assertEquals(Role.FUNCIONARIO, created.getRole());
         assertEquals("admin@air.com", created.getEmail());
     }
 
@@ -65,8 +66,6 @@ class UserServiceTest {
     void usuarioSubsequenteNoRegistroPublicoDeveSerFuncionario() {
         when(userRepository.existsByEmail(anyString())).thenReturn(false);
         when(userRepository.existsByCpf(anyString())).thenReturn(false);
-        when(userRepository.count()).thenReturn(1L);
-
         Employee activeEmp = new Employee();
         activeEmp.setCpf("11144477735");
         activeEmp.setStatus("ATIVO");
@@ -92,6 +91,33 @@ class UserServiceTest {
     }
 
     @Test
+    void administradorPodeAlterarPerfilDeOutroUsuario() {
+        User administrator = new User("Admin", "admin@empresa.com", "hash", Role.ADMIN);
+        administrator.setId(1L);
+        User employee = new User("João", "joao@empresa.com", "hash", Role.FUNCIONARIO);
+        employee.setId(2L);
+        when(userRepository.findById(2L)).thenReturn(Optional.of(employee));
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        User updated = userService.updateRole(2L, Role.SUPERVISOR, administrator);
+
+        assertEquals(Role.SUPERVISOR, updated.getRole());
+    }
+
+    @Test
+    void administradorNaoPodeAtribuirPerfilGlobalNemAlterarProprioPerfil() {
+        User administrator = new User("Admin", "admin@empresa.com", "hash", Role.ADMIN);
+        administrator.setId(1L);
+        User employee = new User("João", "joao@empresa.com", "hash", Role.FUNCIONARIO);
+        employee.setId(2L);
+        when(userRepository.findById(2L)).thenReturn(Optional.of(employee));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(administrator));
+
+        assertThrows(IllegalArgumentException.class, () -> userService.updateRole(2L, Role.GLOBAL_ADMIN, administrator));
+        assertThrows(IllegalArgumentException.class, () -> userService.updateRole(1L, Role.SUPERVISOR, administrator));
+    }
+
+    @Test
     void adminDeEmpresaNaoPodeCriarGlobalAdmin() {
         User companyAdmin = new User("Admin Empresa", "admin@empresa.com", "pass", Role.ADMIN);
 
@@ -107,6 +133,16 @@ class UserServiceTest {
         assertThrows(IllegalArgumentException.class, () ->
                 userService.createManagedUser(request, Role.GLOBAL_ADMIN, companyAdmin)
         );
+    }
+
+    @Test
+    void cpfCadastradoPodeSerUsadoNoLogin() {
+        User user = new User("João", "joao@empresa.com", "hash", Role.FUNCIONARIO);
+        user.setCpf("11144477735");
+        when(userRepository.findByCpf("11144477735")).thenReturn(Optional.of(user));
+
+        assertEquals("joao@empresa.com", userService.resolveLoginIdentifier("111.444.777-35"));
+        assertEquals("nao.cadastrado", userService.resolveLoginIdentifier("nao.cadastrado"));
     }
 
     @Test

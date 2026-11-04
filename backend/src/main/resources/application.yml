@@ -45,7 +45,7 @@ server:
   port: ${PORT:${SERVER_PORT:8080}}
 
 jwt:
-  secret: ${JWT_SECRET:EllencoOperationalPlatformDefaultSecureSecretKey2026MustBeOverriddenInProduction!}
+  secret: ${JWT_SECRET}
   expiration: ${JWT_EXPIRATION:86400000}
 
 management:

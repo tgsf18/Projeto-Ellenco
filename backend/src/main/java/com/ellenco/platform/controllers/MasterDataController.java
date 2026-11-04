@@ -51,6 +51,13 @@ public class MasterDataController {
 
     @PostMapping("/suppliers")
     public Supplier fornecedor(@RequestBody Supplier v) {
+        if (v.getCnpj() == null || v.getCnpj().isBlank() || v.getRazaoSocial() == null || v.getRazaoSocial().isBlank()) {
+            throw new IllegalArgumentException("CNPJ e razão social são obrigatórios.");
+        }
+        v.setCnpj(v.getCnpj().replaceAll("\\D", ""));
+        if (fornecedores.existsByCnpj(v.getCnpj())) {
+            throw new IllegalArgumentException("Este CNPJ já está cadastrado. Selecione o fornecedor existente.");
+        }
         return fornecedores.save(v);
     }
 
@@ -64,6 +71,11 @@ public class MasterDataController {
     @GetMapping("/employees")
     public List<Employee> funcionarios() {
         return funcionarios.findAll();
+    }
+
+    @GetMapping("/job-functions")
+    public List<String> jobFunctions() {
+        return JobFunctionCatalog.all();
     }
 
     @PostMapping("/employees")

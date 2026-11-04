@@ -56,6 +56,8 @@ public class Product {
 
     private String numeroCa;
 
+    private LocalDate validadeCa;
+
     private String localizacaoPrateleira;
 
     @Column(name = "created_at")
@@ -121,6 +123,9 @@ public class Product {
 
     public String getNumeroCa() { return numeroCa; }
     public void setNumeroCa(String numeroCa) { this.numeroCa = numeroCa; }
+
+    public LocalDate getValidadeCa() { return validadeCa; }
+    public void setValidadeCa(LocalDate validadeCa) { this.validadeCa = validadeCa; }
 
     public String getLocalizacaoPrateleira() { return localizacaoPrateleira; }
     public void setLocalizacaoPrateleira(String localizacaoPrateleira) { this.localizacaoPrateleira = localizacaoPrateleira; }

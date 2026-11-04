@@ -16,6 +16,8 @@ import java.util.Optional;
 
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
@@ -41,6 +43,15 @@ class SecurityIntegrationTest {
     }
 
     @Test
+    void cadastroComCamposInvalidosDeveRetornar400Json() throws Exception {
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"nome\":\"\",\"email\":\"email-invalido\",\"password\":\"123\",\"cpf\":\"\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON));
+    }
+
+    @Test
     void funcionarioTentandoAcessarEndpointAdministrativoDeveRetornar403Json() throws Exception {
         User func = new User("Operário", "operario@empresa.com", "pass", Role.FUNCIONARIO);
         func.setId(99L);
@@ -57,6 +68,23 @@ class SecurityIntegrationTest {
                 .andExpect(status().isForbidden())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.error").exists());
+    }
+
+    @Test
+    void funcionarioNaoPodeAlterarPerfilDeAcesso() throws Exception {
+        User func = new User("Operário", "operario@empresa.com", "pass", Role.FUNCIONARIO);
+        func.setId(99L);
+        func.setCpf("11144477735");
+        func.setAtivo(true);
+        when(userRepository.findByEmail("operario@empresa.com")).thenReturn(Optional.of(func));
+        String token = jwtService.generateToken("operario@empresa.com");
+
+        mockMvc.perform(patch("/api/users/100/role")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"role\":\"ADMIN\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value(403));
     }
 
     @Test

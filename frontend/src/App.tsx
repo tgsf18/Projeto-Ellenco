@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { BarChart3, Bell, Boxes, ChevronLeft, ChevronRight, ClipboardList, HardHat, Home, LogOut, Menu, Moon, Package, RefreshCw, Settings, Sun, UserRound, Wrench, X } from 'lucide-react'
 import { AuthUser, isTokenValid, request } from './api'
 import Login from './pages/Login'
@@ -15,6 +15,7 @@ import MovementsPanel from './components/MovementsPanel'
 import InventoryPanel from './components/InventoryPanel'
 import ToolsPanel from './components/ToolsPanel'
 import SyncPanel from './components/SyncPanel'
+import ToastHost from './components/ToastHost'
 
 type View = 'home' | 'dashboard' | 'receipts' | 'stock' | 'movements' | 'inventory' | 'tools' | 'epi' | 'sync' | 'employees' | 'audit' | 'reports' | 'management' | 'account'
 type Theme = 'light' | 'dark'
@@ -68,6 +69,10 @@ export default function App() {
   const [theme, setTheme] = useState<Theme>(() => localStorage.getItem('ellenco_theme') === 'dark' ? 'dark' : 'light')
   const [view, setView] = useState<View>('home')
   const [dashboard, setDashboard] = useState<any>(null)
+  const dashboardFetchedAt = useRef(0)
+  const dashboardInFlight = useRef<Promise<void> | null>(null)
+  const announcedAlerts = useRef(new Set<string>())
+  const dashboardRefreshQueued = useRef(false)
   const [user, setUser] = useState<AuthUser | null>(() => {
     try {
       const value = localStorage.getItem('ellenco_user')
@@ -91,9 +96,53 @@ export default function App() {
     localStorage.setItem('ellenco_sidebar', collapsed ? 'collapsed' : 'expanded')
   }, [collapsed])
 
+  const refreshDashboard = (force = false) => {
+    if (!user || (!force && Date.now() - dashboardFetchedAt.current < 15000)) return dashboardInFlight.current
+    if (dashboardInFlight.current) return dashboardInFlight.current
+    dashboardInFlight.current = request<any>('/dashboard').then(data => {
+      setDashboard(data)
+      dashboardFetchedAt.current = Date.now()
+      const alerts: { title: string; route: string }[] = data?.alerts || []
+      const activeAlertKeys = new Set(alerts.map(alert => `${alert.route}:${alert.title}`))
+      alerts.forEach(alert => {
+        const key = `${alert.route}:${alert.title}`
+        if (announcedAlerts.current.has(key)) return
+        announcedAlerts.current.add(key)
+        const view = alert.route.includes('estoque') ? 'stock' : alert.route.includes('receb') ? 'receipts' : 'epi'
+        window.dispatchEvent(new CustomEvent('ellenco:toast', { detail: { type: 'warning', message: alert.title, action: 'Abrir', view } }))
+      })
+      announcedAlerts.current = activeAlertKeys
+    }).catch(() => undefined).finally(() => {
+      dashboardInFlight.current = null
+      if (dashboardRefreshQueued.current) {
+        dashboardRefreshQueued.current = false
+        if (user && (view === 'dashboard' || view === 'home')) void refreshDashboard(true)
+      }
+    })
+    return dashboardInFlight.current
+  }
+
   useEffect(() => {
-    if (user && (view === 'dashboard' || view === 'home')) {
-      request('/dashboard').then(setDashboard).catch(() => undefined)
+    if (user && (view === 'dashboard' || view === 'home')) void refreshDashboard()
+  }, [user, view])
+
+  useEffect(() => {
+    const onDataChanged = () => {
+      dashboardFetchedAt.current = 0
+      if (user && (view === 'dashboard' || view === 'home')) {
+        if (dashboardInFlight.current) dashboardRefreshQueued.current = true
+        else void refreshDashboard(true)
+      }
+    }
+    const onNavigate = (event: Event) => {
+      const next = (event as CustomEvent<View>).detail
+      if (next) setView(next)
+    }
+    window.addEventListener('ellenco:data-changed', onDataChanged)
+    window.addEventListener('ellenco:navigate', onNavigate)
+    return () => {
+      window.removeEventListener('ellenco:data-changed', onDataChanged)
+      window.removeEventListener('ellenco:navigate', onNavigate)
     }
   }, [user, view])
 
@@ -120,6 +169,9 @@ export default function App() {
 
   const logout = () => {
     localStorage.clear()
+    setDashboard(null)
+    dashboardFetchedAt.current = 0
+    announcedAlerts.current.clear()
     setUser(null)
   }
 
@@ -134,10 +186,10 @@ export default function App() {
     : current === 'inventory' ? <InventoryPanel user={user} />
     : current === 'tools' ? <ToolsPanel />
     : current === 'receipts' ? <ReceiptPanel />
-    : current === 'epi' ? <EpiPanel />
+    : current === 'epi' ? <EpiPanel user={user} />
     : current === 'sync' ? <SyncPanel />
     : current === 'audit' ? <AuditPanel />
-    : <ManagementReports />
+    : <ManagementReports user={user} />
 
   const nav = (mobile = false) => (
     <>
@@ -181,6 +233,7 @@ export default function App() {
 
   return (
     <div className={`application-shell ${collapsed ? 'sidebar-collapsed' : ''}`}>
+      <ToastHost />
       <aside className="desktop-sidebar">
         {nav()}
         <button

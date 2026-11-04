@@ -20,21 +20,27 @@ public class InventoryOperationService {
     private final WarehouseRepository warehouses;
     private final MovementRepository movements;
     private final AuditService audit;
+    private final ConstructionSiteRepository sites;
 
     public InventoryOperationService(StockBalanceRepository balances,
                                      ProductRepository products,
                                      WarehouseRepository warehouses,
                                      MovementRepository movements,
-                                     AuditService audit) {
+                                     AuditService audit,
+                                     ConstructionSiteRepository sites) {
         this.balances = balances;
         this.products = products;
         this.warehouses = warehouses;
         this.movements = movements;
         this.audit = audit;
+        this.sites = sites;
     }
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public InventoryMovement execute(InventoryOperationRequest r, User user) {
+        if (r.tipo() == OperationType.AJUSTE) {
+            throw new IllegalArgumentException("Ajustes de estoque só podem ser aplicados pela aprovação de um inventário.");
+        }
         if (r.quantidade() == null || r.quantidade().compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("A quantidade movimentada deve ser maior que zero.");
         }
@@ -83,10 +89,7 @@ public class InventoryOperationService {
                 origin.setStatus(origin.getQuantidadeBloqueada().signum() == 0 ? "DISPONIVEL" : "BLOQUEADO_PARCIAL");
                 balances.save(origin);
             }
-            case AJUSTE -> {
-                origin.setQuantidadeAtual(r.quantidade());
-                balances.save(origin);
-            }
+            case AJUSTE -> throw new IllegalArgumentException("Ajustes de estoque só podem ser aplicados pela aprovação de um inventário.");
             default -> throw new IllegalArgumentException("Operação não permitida neste fluxo operacional.");
         }
 
@@ -107,6 +110,11 @@ public class InventoryOperationService {
                 r.motivo(),
                 r.observacao()
         );
+        if (r.tipo() == OperationType.SAIDA && r.obraId() != null) {
+            movement.setDestino(sites.findById(r.obraId())
+                    .map(ConstructionSite::getNome)
+                    .orElseThrow(() -> new IllegalArgumentException("Obra de destino não encontrada.")));
+        }
 
         movement.setSaldoOrigemId(origin == null ? null : origin.getId());
         movement.setSaldoDestinoId(destination == null ? null : destination.getId());
@@ -277,7 +285,7 @@ public class InventoryOperationService {
 
     private boolean requiresOrigin(OperationType t) {
         return List.of(OperationType.SAIDA, OperationType.TRANSFERENCIA, OperationType.RESERVA,
-                OperationType.LIBERACAO, OperationType.BLOQUEIO, OperationType.DESBLOQUEIO, OperationType.AJUSTE).contains(t);
+                OperationType.LIBERACAO, OperationType.BLOQUEIO, OperationType.DESBLOQUEIO).contains(t);
     }
 
     public void refreshProduct(Product p) {

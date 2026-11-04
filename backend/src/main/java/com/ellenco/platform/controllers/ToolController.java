@@ -21,12 +21,17 @@ public class ToolController {
     private final ToolLoanRepository loans;
     private final WarehouseRepository warehouses;
     private final AuditService audit;
+    private final EmployeeRepository employees;
+    private final ConstructionSiteRepository sites;
 
-    public ToolController(ToolAssetRepository t, ToolLoanRepository l, WarehouseRepository w, AuditService a) {
+    public ToolController(ToolAssetRepository t, ToolLoanRepository l, WarehouseRepository w, AuditService a,
+                          EmployeeRepository employees, ConstructionSiteRepository sites) {
         this.tools = t;
         this.loans = l;
         this.warehouses = w;
         this.audit = a;
+        this.employees = employees;
+        this.sites = sites;
     }
 
     @GetMapping
@@ -66,6 +71,16 @@ public class ToolController {
         if (!"DISPONIVEL".equals(t.getStatus())) {
             throw new IllegalArgumentException("Ferramenta indisponível: " + t.getStatus());
         }
+        Employee employee = employees.findByCpf(l.getResponsavelCpf())
+                .orElseThrow(() -> new IllegalArgumentException("Selecione um funcionário cadastrado no RH."));
+        if (!"ATIVO".equalsIgnoreCase(employee.getStatus())) {
+            throw new IllegalArgumentException("O responsável selecionado está inativo.");
+        }
+        if (l.getObraId() == null) throw new IllegalArgumentException("Selecione uma obra cadastrada.");
+        ConstructionSite site = sites.findById(l.getObraId())
+                .orElseThrow(() -> new IllegalArgumentException("Obra não encontrada."));
+        l.setResponsavelNome(employee.getNome());
+        l.setObra(site.getNome());
         l.setFerramenta(t);
         l.setEstadoSaida(t.getEstadoConservacao());
         l.setStatus("EMPRESTADO");

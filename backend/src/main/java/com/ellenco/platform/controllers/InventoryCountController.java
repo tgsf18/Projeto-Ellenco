@@ -55,6 +55,7 @@ public class InventoryCountController {
         InventoryCount c = new InventoryCount();
         c.setGalpao(w);
         c.setResponsavel(user != null ? user.getNome() : "Sistema");
+        c.setIniciadoPorId(user != null ? user.getId() : null);
         c.setContagemCega(!Boolean.FALSE.equals(body.get("contagemCega")));
         c = counts.save(c);
 
@@ -118,6 +119,9 @@ public class InventoryCountController {
         if (!"AGUARDANDO_APROVACAO".equals(c.getStatus())) {
             throw new IllegalArgumentException("Este inventário não está aguardando aprovação.");
         }
+        if (user != null && user.getId().equals(c.getIniciadoPorId())) {
+            throw new IllegalArgumentException("Quem iniciou o inventário não pode aprovar os próprios ajustes.");
+        }
 
         Set<Product> affectedProducts = new HashSet<>();
 
@@ -168,6 +172,7 @@ public class InventoryCountController {
         c.setStatus("APROVADO");
         c.setAprovadoEm(LocalDateTime.now());
         c.setAprovadoPor(user != null ? user.getNome() : "Admin");
+        c.setAprovadoPorId(user != null ? user.getId() : null);
 
         audit.log(user != null ? user.getNome() : "Admin", user != null ? user.getEmail() : "admin@ellenco.com",
                 "INVENTARIO", "APROVACAO", "InventoryCount", id.toString(), "Ajustes de inventário aprovados e saldos sincronizados.");

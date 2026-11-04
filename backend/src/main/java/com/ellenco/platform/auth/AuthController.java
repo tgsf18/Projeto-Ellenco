@@ -30,7 +30,7 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
-        String email = request.email().trim().toLowerCase();
+        String email = userService.resolveLoginIdentifier(request.email());
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(email, request.password())
         );
