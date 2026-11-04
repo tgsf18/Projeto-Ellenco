@@ -73,11 +73,6 @@ public class MasterDataController {
         return funcionarios.findAll();
     }
 
-    @GetMapping("/job-functions")
-    public List<String> jobFunctions() {
-        return JobFunctionCatalog.all();
-    }
-
     @PostMapping("/employees")
     public ResponseEntity<Employee> funcionario(@RequestBody Employee v) {
         if (funcionarios.findByCpf(v.getCpf()).isPresent()) {
