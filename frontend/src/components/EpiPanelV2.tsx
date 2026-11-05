@@ -155,9 +155,80 @@ export default function EpiPanelV2({ user }: { user: AuthUser }) {
       { label: 'Troca em até 30 dias', value: alerts.proximosVencimento.length, detail: 'Planejar reposição', icon: <AlertTriangle/>, tone: 'amber' },
       { label: 'Troca vencida', value: alerts.vencidos.length, detail: 'Prioridade de segurança', icon: <BadgeCheck/>, tone: 'red' }
     ]}/>
-    <section className="content-card epi-requests"><div className="section-heading"><div><h2>{user.role === 'FUNCIONARIO' ? 'Minhas solicitações' : 'Solicitações de EPI'}</h2><p>{user.role === 'FUNCIONARIO' ? 'Acompanhe o andamento e a decisão do responsável.' : 'Analise os pedidos. A aprovação cria a entrega e baixa o estoque do lote.'}</p></div><span className="status warning">{requests.filter(item => item.status === 'PENDENTE').length} pendentes</span></div>
-      {requests.length ? <div className="table-card"><table><thead><tr>{user.role !== 'FUNCIONARIO' && <th>Funcionário</th>}<th>EPI solicitado</th><th>Quantidade / motivo</th><th>Solicitada</th><th>Situação</th><th>Resposta / ação</th></tr></thead><tbody>{requests.map(item => <tr key={item.id}>{user.role !== 'FUNCIONARIO' && <td><b>{item.funcionario.nome}</b><small>{item.funcionario.cpf}</small></td>}<td><b>{item.produto.nome}</b><small>CA {item.produto.numeroCa}</small></td><td>{item.quantidade} un.<small>{item.motivo}</small></td><td>{new Date(item.solicitadaEm).toLocaleString('pt-BR')}</td><td><span className={`status ${item.status === 'PENDENTE' ? 'warning' : item.status === 'APROVADA' ? 'ok' : 'danger'}`}>{item.status}</span>{item.analisadaPorNome && <small>Analisada por {item.analisadaPorNome}</small>}</td><td>{item.status === 'PENDENTE' && user.role === 'FUNCIONARIO' && <button className="secondary-button" onClick={() => void cancelRequest(item.id)}>Cancelar</button>}{item.status === 'PENDENTE' && user.role !== 'FUNCIONARIO' && <button className="primary-button" onClick={() => {setReviewRequest(item);setReviewDraft({saldoEstoqueId:'',dataPrevisaoTroca:'',observacao:''})}}>Analisar</button>}{item.status === 'APROVADA' && item.entrega && <small>Entrega #{item.entrega.id} · aguarda aceite do funcionário</small>}{item.observacaoDecisao && <small>{item.observacaoDecisao}</small>}</td></tr>)}</tbody></table></div> : <div className="empty-state">Nenhuma solicitação de EPI.</div>}
+
+    {/* SEÇÃO SOLICITAÇÕES DE EPI (CSS CORRIGIDO E RESPONSIVO) */}
+    <section className="epi-requests">
+      <div className="epi-requests-header">
+        <div>
+          <h2>{user.role === 'FUNCIONARIO' ? 'Minhas solicitações' : 'Solicitações de EPI'}</h2>
+          <p>{user.role === 'FUNCIONARIO' ? 'Acompanhe o andamento e a decisão do responsável.' : 'Analise os pedidos. A aprovação cria a entrega e baixa o estoque do lote.'}</p>
+        </div>
+        <span className="status warning">{requests.filter(item => item.status === 'PENDENTE').length} pendentes</span>
+      </div>
+
+      {requests.length ? (
+        <div className="epi-requests-table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                {user.role !== 'FUNCIONARIO' && <th>Funcionário</th>}
+                <th>EPI solicitado</th>
+                <th>Quantidade / motivo</th>
+                <th>Solicitada</th>
+                <th>Situação</th>
+                <th>Resposta / ação</th>
+              </tr>
+            </thead>
+            <tbody>
+              {requests.map(item => (
+                <tr key={item.id}>
+                  {user.role !== 'FUNCIONARIO' && (
+                    <td>
+                      <b>{item.funcionario.nome}</b>
+                      <small>{item.funcionario.cpf}</small>
+                    </td>
+                  )}
+                  <td>
+                    <b>{item.produto.nome}</b>
+                    <small>CA {item.produto.numeroCa}</small>
+                  </td>
+                  <td>
+                    <b>{item.quantidade} un.</b>
+                    <small className="request-reason">{item.motivo}</small>
+                  </td>
+                  <td>{new Date(item.solicitadaEm).toLocaleString('pt-BR')}</td>
+                  <td>
+                    <span className={`status ${item.status === 'PENDENTE' ? 'warning' : item.status === 'APROVADA' ? 'ok' : 'danger'}`}>
+                      {item.status}
+                    </span>
+                    {item.analisadaPorNome && <small>Por: {item.analisadaPorNome}</small>}
+                  </td>
+                  <td>
+                    <div className="flex flex-col gap-1 items-start">
+                      {item.status === 'PENDENTE' && user.role === 'FUNCIONARIO' && (
+                        <button className="secondary-button" onClick={() => void cancelRequest(item.id)}>Cancelar</button>
+                      )}
+                      {item.status === 'PENDENTE' && user.role !== 'FUNCIONARIO' && (
+                        <button className="primary-button" onClick={() => { setReviewRequest(item); setReviewDraft({ saldoEstoqueId: '', dataPrevisaoTroca: '', observacao: '' }) }}>Analisar</button>
+                      )}
+                      {item.status === 'APROVADA' && item.entrega && (
+                        <small className="text-emerald font-semibold">Entrega #{item.entrega.id} · Aguarda aceite</small>
+                      )}
+                      {item.observacaoDecisao && (
+                        <small className="request-decision-note">{item.observacaoDecisao}</small>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="empty-state">Nenhuma solicitação de EPI registrada no momento.</div>
+      )}
     </section>
+
     <label className="module-search-label"><span>Buscar entregas</span><input className="module-search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Funcionário, CPF, produto, CA ou situação"/></label>
     <div className="table-card"><table><thead><tr><th>Funcionário</th><th>EPI / CA</th><th>Almoxarifado / lote</th><th>Troca prevista</th><th>Status</th><th>Ações</th></tr></thead><tbody>
       {filtered.map(item => {
@@ -166,34 +237,39 @@ export default function EpiPanelV2({ user }: { user: AuthUser }) {
       })}
       {!filtered.length && <tr><td colSpan={6}><div className="empty-state">{deliveries.length ? 'Nenhum resultado para esta busca.' : 'Nenhuma entrega registrada.'}</div></td></tr>}
     </tbody></table></div>
-    <Modal open={open} title={replace ? 'Substituir EPI' : 'Registrar entrega de EPI'} onClose={() => { if (!busy) { setOpen(false); setReplace(null) } }}>
-      <form className="product-form" onSubmit={save}>
-        <label>Funcionário ativo no RH<SearchableSelect ariaLabel="Funcionário" value={draft.funcionarioCpf} options={employeeOptions} disabled={Boolean(replace)} onChange={value => setDraft(current => ({ ...current, funcionarioCpf: value }))} placeholder="Pesquisar nome, função, matrícula ou CPF"/></label>
-        <label>Produto EPI, CA, lote e almoxarifado<SearchableSelect ariaLabel="Produto, CA, lote e almoxarifado" value={draft.saldoEstoqueId} options={balanceOptions} onChange={value => setDraft(current => ({ ...current, saldoEstoqueId: value }))} placeholder="Pesquisar código, produto, CA, lote ou obra"/></label>
-        {selectedBalance && <p className="epi-stock-proof"><PackageCheck size={17}/><span>Saldo disponível: <b>{selectedBalance.quantidadeDisponivel} {selectedBalance.produto.unidade || 'UN'}</b> · Lote {selectedBalance.lote} · validade até {formatDate(selectedBalance.dataValidade)} · CA válido até {formatDate(selectedBalance.produto.validadeCa)}</span></p>}
-        <label>Quantidade<input type="number" min="1" max={selectedBalance?.quantidadeDisponivel} step="1" value={draft.quantidade} onChange={event => setDraft(current => ({ ...current, quantidade: event.target.value }))} required/></label>
-        <label>Próxima troca<input type="date" min={today()} max={selectedBalance ? [selectedBalance.dataValidade, selectedBalance.produto.validadeCa].filter(Boolean).sort()[0] : undefined} value={draft.dataPrevisaoTroca} onChange={event => setDraft(current => ({ ...current, dataPrevisaoTroca: event.target.value }))} required/></label>
-        {!employeeOptions.length && <p className="form-error">Não há funcionários ativos cadastrados no RH.</p>}
-        {!balanceOptions.length && <p className="form-error">Não há lotes elegíveis. Cadastre o produto como EPI, informe CA e validade do CA e receba um lote com validade no estoque.</p>}
-        <button className="primary-button modal-submit" disabled={busy || !employeeOptions.length || !balanceOptions.length}>{busy ? 'Registrando e baixando estoque…' : 'Confirmar entrega e baixar estoque'}</button>
+
+    {/* MODAL SOLICITAR EPI */}
+    <Modal open={requestOpen} title="Solicitar EPI" onClose={() => { if (!busy) setRequestOpen(false) }}>
+      <form className="product-form" onSubmit={submitRequest}>
+        <p className="wide text-sm text-muted">Escolha um item disponível no estoque. A quantidade será validada novamente quando o responsável analisar o pedido.</p>
+        <label className="wide">EPI disponível<SearchableSelect ariaLabel="EPI disponível" value={requestDraft.produtoId} options={requestProductOptions} onChange={produtoId => setRequestDraft(current => ({...current, produtoId}))} placeholder="Pesquisar código, nome ou CA"/></label>
+        {requestDraft.produtoId && <label className="wide">Quantidade<input type="number" min="1" max={requestCatalog.find(p => String(p.id) === requestDraft.produtoId)?.quantidadeDisponivel} step="1" value={requestDraft.quantidade} onChange={event => setRequestDraft(current => ({...current, quantidade:event.target.value}))} required/></label>}
+        <label className="wide">Motivo da solicitação<textarea className="form-textarea" value={requestDraft.motivo} onChange={event => setRequestDraft(current => ({...current, motivo:event.target.value}))} maxLength={2000} rows={3} required placeholder="Informe a necessidade de uso ou motivo da troca"/></label>
+        {!requestCatalog.length && <p className="form-error wide">Não há EPI elegível disponível. Estoque, lote e CA precisam estar dentro da validade.</p>}
+        <button className="primary-button modal-submit wide" disabled={busy || !requestCatalog.length}>{busy ? 'Enviando…' : 'Enviar para aprovação'}</button>
       </form>
     </Modal>
-    <Modal open={requestOpen} title="Solicitar EPI" onClose={() => { if (!busy) setRequestOpen(false) }}><form className="product-form" onSubmit={submitRequest}>
-      <p className="wide">Escolha um item disponível no estoque. A quantidade será validada novamente quando o responsável analisar o pedido.</p>
-      <label className="wide">EPI disponível<SearchableSelect ariaLabel="EPI disponível" value={requestDraft.produtoId} options={requestProductOptions} onChange={produtoId => setRequestDraft(current => ({...current, produtoId}))} placeholder="Pesquisar código, nome ou CA"/></label>
-      {requestDraft.produtoId && <label>Quantidade<input type="number" min="1" max={requestCatalog.find(p => String(p.id) === requestDraft.produtoId)?.quantidadeDisponivel} step="1" value={requestDraft.quantidade} onChange={event => setRequestDraft(current => ({...current, quantidade:event.target.value}))} required/></label>}
-      <label className="wide">Motivo da solicitação<textarea value={requestDraft.motivo} onChange={event => setRequestDraft(current => ({...current, motivo:event.target.value}))} maxLength={2000} required placeholder="Informe a necessidade de uso ou troca"/></label>
-      {!requestCatalog.length && <p className="form-error wide">Não há EPI elegível disponível. Estoque, lote e CA precisam estar dentro da validade.</p>}
-      <button className="primary-button modal-submit wide" disabled={busy || !requestCatalog.length}>{busy ? 'Enviando…' : 'Enviar para aprovação'}</button>
-    </form></Modal>
-    <Modal open={Boolean(reviewRequest)} title="Analisar solicitação de EPI" onClose={() => {if (!busy) setReviewRequest(null)}}>{reviewRequest && <div className="product-form">
-      <p className="wide"><b>{reviewRequest.funcionario.nome}</b> solicita {reviewRequest.quantidade} × {reviewRequest.produto.nome}.<br/>{reviewRequest.motivo}</p>
-      <label className="wide">Lote elegível<SearchableSelect ariaLabel="Lote elegível" value={reviewDraft.saldoEstoqueId} options={reviewBalanceOptions} onChange={saldoEstoqueId => setReviewDraft(current => ({...current,saldoEstoqueId}))} placeholder="Selecione o lote para a entrega"/></label>
-      {reviewDraft.saldoEstoqueId && <label>Próxima troca<input type="date" min={today()} max={(() => {const b=reviewBalances.find(i=>String(i.id)===reviewDraft.saldoEstoqueId); return b ? [b.dataValidade,b.produto.validadeCa].filter(Boolean).sort()[0] : undefined})()} value={reviewDraft.dataPrevisaoTroca} onChange={event=>setReviewDraft(current=>({...current,dataPrevisaoTroca:event.target.value}))} required/></label>}
-      <label className="wide">Observação da decisão<textarea value={reviewDraft.observacao} onChange={event=>setReviewDraft(current=>({...current,observacao:event.target.value}))} placeholder="Obrigatória se rejeitar; opcional se aprovar"/></label>
-      {!reviewBalanceOptions.length && <p className="form-error wide">O saldo elegível acabou ou o CA/lote venceu. Recarregue o estoque antes de aprovar.</p>}
-      <div className="table-actions wide"><button className="secondary-button" onClick={()=>void review('reject')} disabled={busy}><X size={16}/> Rejeitar</button><button className="primary-button" onClick={()=>void review('approve')} disabled={busy||!reviewBalanceOptions.length}><Check size={16}/> Aprovar e registrar entrega</button></div>
-    </div>}</Modal>
+
+    {/* MODAL ANALISAR SOLICITAÇÃO DE EPI */}
+    <Modal open={Boolean(reviewRequest)} title="Analisar solicitação de EPI" onClose={() => {if (!busy) setReviewRequest(null)}}>
+      {reviewRequest && (
+        <div className="product-form">
+          <div className="wide request-review-summary">
+            <b>{reviewRequest.funcionario.nome}</b> solicita <b>{reviewRequest.quantidade} × {reviewRequest.produto.nome}</b>
+            <p className="mt-1 text-sm text-muted">{reviewRequest.motivo}</p>
+          </div>
+          <label className="wide">Lote elegível<SearchableSelect ariaLabel="Lote elegível" value={reviewDraft.saldoEstoqueId} options={reviewBalanceOptions} onChange={saldoEstoqueId => setReviewDraft(current => ({...current,saldoEstoqueId}))} placeholder="Selecione o lote para a entrega"/></label>
+          {reviewDraft.saldoEstoqueId && <label className="wide">Próxima troca<input type="date" min={today()} max={(() => {const b=reviewBalances.find(i=>String(i.id)===reviewDraft.saldoEstoqueId); return b ? [b.dataValidade,b.produto.validadeCa].filter(Boolean).sort()[0] : undefined})()} value={reviewDraft.dataPrevisaoTroca} onChange={event=>setReviewDraft(current=>({...current,dataPrevisaoTroca:event.target.value}))} required/></label>}
+          <label className="wide">Observação da decisão<textarea className="form-textarea" value={reviewDraft.observacao} onChange={event=>setReviewDraft(current=>({...current,observacao:event.target.value}))} rows={3} placeholder="Obrigatória se rejeitar; opcional se aprovar"/></label>
+          {!reviewBalanceOptions.length && <p className="form-error wide">O saldo elegível acabou ou o CA/lote venceu. Recarregue o estoque antes de aprovar.</p>}
+          <div className="wide request-review-actions">
+            <button className="secondary-button" onClick={()=>void review('reject')} disabled={busy}><X size={16}/> Rejeitar</button>
+            <button className="primary-button" onClick={()=>void review('approve')} disabled={busy||!reviewBalanceOptions.length}><Check size={16}/> Aprovar e registrar entrega</button>
+          </div>
+        </div>
+      )}
+    </Modal>
+
     {sign && <SignatureModal onClose={() => setSign(null)} onConfirm={async signature => { try { await request(`/epi/${sign}/sign`, { method: 'POST', body: JSON.stringify({ assinaturaDigital: signature }) }); setSign(null); setMessage('Assinatura digital registrada.'); await load() } catch (error) { setMessage(error instanceof Error ? error.message : 'Não foi possível confirmar a assinatura.') } }} />}
   </section>
 }
