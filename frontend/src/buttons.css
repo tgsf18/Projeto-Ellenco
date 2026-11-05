@@ -1,1 +1,248 @@
-button{font-family:inherit}.btn,.primary-button,.secondary-button,.link-button{min-height:42px;border-radius:12px!important;font-weight:800!important;letter-spacing:.01em;transition:transform .18s ease,box-shadow .18s ease,background .18s ease,color .18s ease!important}.btn.primary,.primary-button{border:1px solid transparent!important;background:linear-gradient(135deg,#1d4d80,#123963)!important;color:white!important;box-shadow:0 8px 18px rgba(23,70,117,.22)!important}.btn.primary:hover,.primary-button:hover{filter:brightness(1.06);transform:translateY(-2px);box-shadow:0 13px 24px rgba(23,70,117,.28)!important}.secondary-button{border:1px solid #cfddea!important;background:#fff!important;color:#174675!important;box-shadow:0 4px 10px rgba(23,70,117,.06)!important}.secondary-button:hover{background:#edf4fb!important;transform:translateY(-1px)}.link-button{border:0!important;background:transparent!important;color:#174675!important;box-shadow:none!important}.link-button:hover{background:#edf4fb!important}.btn:active,.primary-button:active,.secondary-button:active,.link-button:active{transform:translateY(0) scale(.97)!important}.btn:focus-visible,.primary-button:focus-visible,.secondary-button:focus-visible,.link-button:focus-visible{outline:3px solid rgba(239,62,66,.35);outline-offset:3px}button:disabled{cursor:not-allowed!important;filter:grayscale(.3);opacity:.55!important;transform:none!important;box-shadow:none!important}
+/* ==========================================================================
+   ELLENCO - SCALED BUTTON SYSTEM (DESKTOP & MOBILE)
+   ========================================================================== */
+
+button {
+  font-family: inherit;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  cursor: pointer;
+  border: none;
+  background: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Base button scale */
+.btn,
+.primary-button,
+.secondary-button,
+.link-button,
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  user-select: none;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  text-decoration: none;
+}
+
+/* Primary Button */
+.btn.primary,
+.primary-button {
+  background: linear-gradient(135deg, #174675 0%, #0d2f53 100%) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 0 4px 14px rgba(18, 63, 109, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+}
+
+.btn.primary:hover,
+.primary-button:hover {
+  background: linear-gradient(135deg, #1e558e 0%, #113a66 100%) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(18, 63, 109, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
+}
+
+.btn.primary:active,
+.primary-button:active {
+  transform: translateY(1px) scale(0.98);
+  box-shadow: 0 2px 8px rgba(18, 63, 109, 0.2) !important;
+}
+
+/* Dark mode primary button */
+:root[data-theme="dark"] .btn.primary,
+:root[data-theme="dark"] .primary-button {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.3) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+:root[data-theme="dark"] .btn.primary:hover,
+:root[data-theme="dark"] .primary-button:hover {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.42) !important;
+}
+
+/* Secondary Button */
+.secondary-button,
+.btn:not(.primary) {
+  background: var(--surface, #ffffff) !important;
+  color: var(--primary, #174675) !important;
+  border: 1px solid var(--line, #cbd5e1) !important;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04) !important;
+}
+
+.secondary-button:hover,
+.btn:not(.primary):hover {
+  background: var(--surface-soft, #f1f5f9) !important;
+  border-color: #94a3b8 !important;
+  color: var(--text, #0f172a) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08) !important;
+}
+
+.secondary-button:active,
+.btn:not(.primary):active {
+  transform: translateY(1px) scale(0.98);
+}
+
+:root[data-theme="dark"] .secondary-button,
+:root[data-theme="dark"] .btn:not(.primary) {
+  background: #142536 !important;
+  border-color: #2b4357 !important;
+  color: #72aee0 !important;
+}
+
+:root[data-theme="dark"] .secondary-button:hover,
+:root[data-theme="dark"] .btn:not(.primary):hover {
+  background: #1a3249 !important;
+  border-color: #3b5d7a !important;
+  color: #d5eaff !important;
+}
+
+/* Link Button */
+.link-button {
+  background: transparent !important;
+  border: none !important;
+  color: var(--primary, #174675) !important;
+  box-shadow: none !important;
+  min-height: auto;
+  height: auto;
+  padding: 6px 10px;
+}
+
+.link-button:hover {
+  background: var(--surface-soft, #f1f5f9) !important;
+  color: #0284c7 !important;
+}
+
+/* Icon Buttons (Search, QR, Camera, Delete, Close) */
+.icon-button,
+.icon-action {
+  min-width: 38px;
+  width: 38px;
+  height: 38px;
+  padding: 0 !important;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line, #cbd5e1);
+  background: var(--surface, #ffffff);
+  color: var(--text, #162536);
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+
+.icon-button:hover,
+.icon-action:hover {
+  background: var(--surface-soft, #f1f5f9);
+  border-color: var(--primary, #174675);
+  transform: scale(1.05);
+}
+
+.icon-action.danger-icon {
+  color: #dc2626;
+  border-color: #fca5a5;
+  background: #fff5f5;
+}
+
+.icon-action.danger-icon:hover {
+  background: #fee2e2;
+  border-color: #ef4444;
+  color: #b91c1c;
+}
+
+/* Table Compact Buttons (Crucial for avoiding broken table rows) */
+table td .btn,
+table td .primary-button,
+table td .secondary-button {
+  min-height: 32px !important;
+  height: 32px !important;
+  padding: 0 10px !important;
+  font-size: 0.78rem !important;
+  border-radius: 7px !important;
+  white-space: nowrap !important;
+  font-weight: 700 !important;
+}
+
+table td .icon-button,
+table td .icon-action {
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+}
+
+/* Disabled State */
+button:disabled,
+.btn:disabled,
+.primary-button:disabled,
+.secondary-button:disabled {
+  opacity: 0.55 !important;
+  cursor: not-allowed !important;
+  filter: grayscale(0.5) !important;
+  transform: none !important;
+  box-shadow: none !important;
+  pointer-events: none;
+}
+
+/* Focus Ring */
+button:focus-visible,
+.btn:focus-visible,
+.primary-button:focus-visible,
+.secondary-button:focus-visible {
+  outline: 2px solid #0284c7;
+  outline-offset: 2px;
+}
+
+/* ==========================================================================
+   MOBILE BUTTON SCALE & ERGONOMIC TOUCH TARGETS (< 768px)
+   ========================================================================== */
+@media (max-width: 768px) {
+  /* Tap-friendly minimum size for mobile standalone actions */
+  .btn,
+  .primary-button,
+  .secondary-button {
+    min-height: 44px;
+    height: 44px;
+    font-size: 0.9rem;
+    padding: 0 16px;
+    border-radius: 12px;
+  }
+
+  .icon-button,
+  .icon-action {
+    min-width: 44px;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+  }
+
+  /* Modal submit and form actions expand to full width for one-thumb reach */
+  .modal-submit,
+  .product-form button[type="submit"],
+  .operation-form button[type="submit"],
+  .login-submit {
+    width: 100% !important;
+    min-height: 48px !important;
+    font-size: 0.95rem !important;
+  }
+
+  /* Table buttons remain touch-friendly without blowing up table height */
+  table td .btn,
+  table td .primary-button,
+  table td .secondary-button {
+    min-height: 34px !important;
+    height: 34px !important;
+    padding: 0 10px !important;
+    font-size: 0.8rem !important;
+  }
+}

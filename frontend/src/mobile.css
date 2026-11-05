@@ -1,19 +1,382 @@
-@media (max-width: 767px) {
-  header > div > nav {
-    position: fixed; inset: auto 0 0 0; z-index: 50; width: 100% !important;
-    display: grid !important; grid-auto-flow: column; grid-auto-columns: minmax(72px,1fr);
-    gap: 0 !important; overflow-x: auto; padding: 8px 6px calc(8px + env(safe-area-inset-bottom));
-    background: rgba(255,255,255,.98); border-top: 1px solid #e2e8f0;
-    box-shadow: 0 -10px 30px rgba(15,23,42,.10);
+/* ==========================================================================
+   ELLENCO - COMPREHENSIVE RESPONSIVE DESIGN & MOBILE MODULES
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. GRIDS SYSTEM (DESKTOP & MOBILE TUNING)
+   -------------------------------------------------------------------------- */
+
+/* Metric Cards Grid: 4 columns on desktop, 2 columns on mobile/tablet */
+.metric-grid,
+.dashboard-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-top: 18px;
+}
+
+@media (max-width: 1024px) {
+  .metric-grid,
+  .dashboard-metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
   }
-  header > div > nav button { min-width: 72px; padding: 10px 8px !important; font-size: 11px !important; line-height: 1.15; }
-  header > div > nav button[class*="bg-blue-50"] { background: #eaf2fb !important; color: #174675 !important; }
-  main { padding-bottom: 94px !important; }
-  header > div { min-height: 58px; }
-  header .ml-auto button:first-child { max-width: 116px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .page-heading,.section-title { align-items: stretch !important; }
-  .page-heading > button,.section-title > div { width: 100%; }
-  .page-heading > button,.section-title > div > button { width: 100%; }
-  .receipt-actions,.report-actions { display: grid; grid-template-columns: 1fr; }
-  .receipt-actions button,.report-actions button { width: 100%; }
+}
+
+@media (max-width: 640px) {
+  .metric-grid,
+  .dashboard-metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-top: 14px;
+  }
+
+  .metric,
+  .metric-card,
+  .dashboard-metric-card {
+    padding: 14px !important;
+    border-radius: 14px !important;
+  }
+
+  .metric strong,
+  .metric-card strong,
+  .dashboard-metric-card strong {
+    font-size: 1.5rem !important;
+    margin-top: 4px !important;
+  }
+
+  .metric span,
+  .metric-card p,
+  .dashboard-metric-card .metric-label {
+    font-size: 0.74rem !important;
+  }
+}
+
+/* Dashboard Performance Layout: Trade Chart (65%) + Companion Stats (35%) */
+.dashboard-performance-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(310px, 1fr);
+  gap: 20px;
+  align-items: stretch;
+  margin-top: 20px;
+}
+
+@media (max-width: 1024px) {
+  .dashboard-performance-layout {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+}
+
+/* Quick Actions Grid (HomePage) */
+.quick-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-top: 18px;
+}
+
+@media (max-width: 768px) {
+  .quick-actions {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .quick-actions button {
+    padding: 15px !important;
+  }
+}
+
+/* Movement Operations Grid (MovementsPanel) */
+.movement-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+  margin: 20px 0;
+}
+
+@media (max-width: 768px) {
+  .movement-actions {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .movement-actions button {
+    padding: 12px 14px !important;
+    gap: 10px !important;
+  }
+
+  .movement-actions button small {
+    display: none; /* Hide verbose subtitle on small screens for neat 2x3 grid */
+  }
+}
+
+@media (max-width: 420px) {
+  .movement-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Management Cards Grid (ManagementHub) */
+.management-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+  margin-top: 20px;
+}
+
+@media (max-width: 640px) {
+  .management-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .management-card {
+    padding: 16px !important;
+  }
+}
+
+/* Tool Grid (ToolsPanel) */
+.tool-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+  margin-top: 18px;
+}
+
+@media (max-width: 640px) {
+  .tool-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   2. FORM GRIDS RESPONSIVENESS (DESKTOP & MOBILE)
+   -------------------------------------------------------------------------- */
+
+.product-form,
+.operation-form,
+.receipt-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.operation-form .wide {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 768px) {
+  .product-form,
+  .operation-form,
+  .receipt-form {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+    padding: 16px !important;
+  }
+
+  .operation-form .wide {
+    grid-column: auto !important;
+  }
+
+  .product-form input,
+  .product-form select,
+  .operation-form input,
+  .operation-form select,
+  .operation-form textarea {
+    width: 100% !important;
+    font-size: 16px !important; /* Prevents auto-zoom on iOS */
+    min-height: 44px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   3. HEADINGS, TOOLBARS & SEARCH SCALING
+   -------------------------------------------------------------------------- */
+
+.section-title,
+.page-heading,
+.dashboard-heading,
+.kardex-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.module-search {
+  min-width: 200px;
+  padding: 10px 14px;
+  border: 1px solid var(--line, #dce5ef);
+  border-radius: 10px;
+  background: var(--input, #ffffff);
+  color: var(--text, #162536);
+  font-size: 0.875rem;
+  outline: none;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.module-search:focus {
+  border-color: var(--primary, #174675);
+  box-shadow: 0 0 0 3px rgba(23, 70, 117, 0.12);
+}
+
+@media (max-width: 768px) {
+  .section-title,
+  .page-heading,
+  .dashboard-heading,
+  .kardex-header {
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 14px;
+  }
+
+  .section-title > div,
+  .page-heading > div,
+  .kardex-header > div {
+    width: 100%;
+  }
+
+  .module-search {
+    width: 100% !important;
+    min-width: 100% !important;
+    min-height: 44px;
+    font-size: 16px !important; /* Prevents auto-zoom on mobile */
+  }
+
+  .section-title h1,
+  .page-heading h1,
+  .dashboard-heading h1 {
+    font-size: 1.6rem !important;
+    line-height: 1.2 !important;
+  }
+
+  .dashboard-filters {
+    width: 100%;
+    display: flex;
+  }
+
+  .dashboard-filters button,
+  .dashboard-filter-btn {
+    flex: 1;
+    text-align: center;
+    padding: 10px 12px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   4. DATA TABLES RESPONSIVENESS & SCROLL CONTAINERS
+   -------------------------------------------------------------------------- */
+
+.table-card {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 16px;
+  border: 1px solid var(--line, #dce5ef);
+  background: var(--surface, #ffffff);
+  box-shadow: var(--shadow, 0 8px 24px rgba(23, 59, 99, 0.06));
+  position: relative;
+}
+
+.table-card table {
+  width: 100%;
+  min-width: 640px;
+  border-collapse: collapse;
+}
+
+@media (max-width: 768px) {
+  .table-card {
+    border-radius: 12px;
+    margin-top: 12px;
+  }
+
+  .table-card table {
+    min-width: 600px;
+  }
+
+  .table-card th,
+  .table-card td {
+    padding: 10px 12px !important;
+    font-size: 0.8rem !important;
+  }
+
+  .table-card td b {
+    font-size: 0.84rem;
+  }
+
+  .table-card td small {
+    font-size: 0.72rem;
+  }
+
+  /* Status badge on mobile */
+  .status {
+    padding: 3px 8px;
+    font-size: 0.68rem;
+    white-space: nowrap;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   5. RECEIPT ITEMS & LISTS RESPONSIVENESS
+   -------------------------------------------------------------------------- */
+
+.receipt-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  border-bottom: 1px solid var(--line, #e2e8f0);
+  transition: background 0.15s ease;
+}
+
+@media (max-width: 768px) {
+  .receipt-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .receipt-main {
+    width: 100%;
+  }
+
+  .receipt-actions {
+    width: 100%;
+    display: flex;
+    gap: 8px;
+    justify-content: stretch;
+  }
+
+  .receipt-actions button {
+    flex: 1;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   6. MODALS ON MOBILE
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 640px) {
+  .modal-overlay {
+    padding: 12px !important;
+    align-items: flex-end !important; /* Bottom-sheet style on mobile */
+  }
+
+  .modal-dialog {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 90vh !important;
+    border-radius: 20px 20px 0 0 !important;
+    padding: 20px 16px !important;
+    overflow-y: auto !important;
+  }
+
+  .modal-header h2 {
+    font-size: 1.25rem !important;
+  }
 }
