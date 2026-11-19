@@ -21,7 +21,7 @@ const SECO = process.argv.includes('--seco');
 
 const DONO = "tgsf18";
 const REPO = "projeto-ellenco";
-const BRANCH = 'main';
+const BRANCH = process.env.ELLENCO_BRANCH || 'ellenco-metas-v2';
 const API = 'https://api.github.com';
 const TOKEN = process.env.GH_TOKEN;
 if (!TOKEN) {
