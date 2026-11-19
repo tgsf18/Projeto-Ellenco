@@ -101,8 +101,17 @@ async function api(rota, opcoes = {}) {
   return texto ? JSON.parse(texto) : null;
 }
 
-const ref = await api(`/repos/${DONO}/${REPO}/git/ref/heads/${BRANCH}`);
-const commitPai = ref.object.sha;
+let commitPai;
+try {
+  const ref = await api(`/repos/${DONO}/${REPO}/git/ref/heads/${BRANCH}`);
+  commitPai = ref.object.sha;
+} catch (e) {
+  if (!/-> 404/.test(e.message)) throw e;
+  // branch nova: parte da main
+  const mainRef = await api(`/repos/${DONO}/${REPO}/git/ref/heads/main`);
+  commitPai = mainRef.object.sha;
+  console.log(`branch ${BRANCH} não existe ainda; partindo de main (${commitPai.slice(0, 10)})`);
+}
 const commitObj = await api(`/repos/${DONO}/${REPO}/git/commits/${commitPai}`);
 const treeRemota = await api(`/repos/${DONO}/${REPO}/git/trees/${commitObj.tree.sha}?recursive=1`);
 const existentes = new Map(treeRemota.tree.map((f) => [f.path, f]));
@@ -158,10 +167,20 @@ const commit = await api(`/repos/${DONO}/${REPO}/git/commits`, {
   body: JSON.stringify({ message: MENSAGEM, tree: novaTree.sha, parents: [commitPai] }),
 });
 
-await api(`/repos/${DONO}/${REPO}/git/refs/heads/${BRANCH}`, {
-  method: 'PATCH',
-  body: JSON.stringify({ sha: commit.sha, force: false }),
-});
+let existe = false;
+try { await api(`/repos/${DONO}/${REPO}/git/ref/heads/${BRANCH}`); existe = true; } catch { /* 404 */ }
+if (existe) {
+  await api(`/repos/${DONO}/${REPO}/git/refs/heads/${BRANCH}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ sha: commit.sha, force: false }),
+  });
+} else {
+  await api(`/repos/${DONO}/${REPO}/git/refs`, {
+    method: 'POST',
+    body: JSON.stringify({ ref: `refs/heads/${BRANCH}`, sha: commit.sha }),
+  });
+}
 
 console.log('\ncommit:', commit.sha);
-console.log('url:', `https://github.com/${DONO}/${REPO}/commit/${commit.sha}`);
+console.log('branch:', BRANCH);
+console.log('url:', `https://github.com/${DONO}/${REPO}/tree/${BRANCH}`);
